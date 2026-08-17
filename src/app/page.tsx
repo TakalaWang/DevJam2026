@@ -498,46 +498,9 @@ function NavigationOverlay({ snapshot }: { snapshot: DayItinerarySnapshot }) {
   );
 }
 
-function NavigationStatus({ snapshot }: { snapshot: DayItinerarySnapshot }) {
-  const navigation = activeNavigation(snapshot);
-  if (!navigation) return null;
-  const from =
-    navigation.leg.fromStopId === "origin"
-      ? snapshot.origin?.label
-      : snapshot.stops.find((stop) => stop.id === navigation.leg.fromStopId)?.title;
-
-  return (
-    <section className="navigation-status" aria-label="目前導航狀態">
-      <div className="navigation-heading">
-        <div>
-          <span className="navigation-live">
-            <span className="status-dot" /> 正在導航
-          </span>
-          <strong>前往 {navigation.destination?.title ?? "下一站"}</strong>
-        </div>
-        <span className="navigation-mode">{modeLabel(navigation.leg.route?.profile)}</span>
-      </div>
-      <div className="navigation-track" aria-hidden="true">
-        <span className="navigation-track-start" />
-        <span className="navigation-track-line">
-          <span className="navigation-track-progress" />
-        </span>
-        <span className="navigation-traveler" />
-        <span className="navigation-track-end" />
-      </div>
-      <div className="navigation-details">
-        <span>{from ?? "目前位置"}</span>
-        <strong>約 {formatDuration(navigation.leg.route?.durationSeconds)}</strong>
-        <span>{navigation.destination?.location.label ?? "下一站"}</span>
-      </div>
-    </section>
-  );
-}
-
 function StopTimeline({ snapshot }: { snapshot: DayItinerarySnapshot }) {
   const returnLeg = snapshot.legs.at(-1)?.toStopId === "home" ? snapshot.legs.at(-1) : undefined;
   const activityLegs = returnLeg ? snapshot.legs.slice(0, -1) : snapshot.legs;
-  const navigation = activeNavigation(snapshot);
   return (
     <div className="timeline">
       {snapshot.origin && (
@@ -567,13 +530,6 @@ function StopTimeline({ snapshot }: { snapshot: DayItinerarySnapshot }) {
               <strong>{stop.title}</strong>
               <span>{stop.location.label}</span>
             </div>
-            <span className={`constraint ${stop.constraint}`}>
-              {stop.id === navigation?.leg.toStopId
-                ? "NEXT"
-                : stop.constraint === "fixed"
-                  ? "FIXED"
-                  : "FLEX"}
-            </span>
           </div>
         </div>
       ))}
@@ -587,7 +543,6 @@ function StopTimeline({ snapshot }: { snapshot: DayItinerarySnapshot }) {
               <strong>回到 {snapshot.origin.label}</strong>
               <span>所有行程完成後返回起點</span>
             </div>
-            <span className="constraint home">HOME</span>
           </div>
         </div>
       )}
@@ -1142,7 +1097,6 @@ export default function Page() {
                 </div>
                 <span className="route-source">GOOGLE ROUTES</span>
               </div>
-              <NavigationStatus snapshot={itinerary} />
               <RouteMap key={`${itinerary.id}-${itinerary.revision}`} snapshot={itinerary} />
               <StopTimeline snapshot={itinerary} />
               {readyToStart && blockedLegCount === 0 && (
