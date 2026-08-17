@@ -113,6 +113,10 @@ export class DemoRouteProvider implements RouteProvider {
       return RouteProviderResultSchema.parse({ status: "ok", paths: [direct] });
     }
     const detour = path(profile, `demo-${profile}-detour`, detourCoordinates(input), transitSteps);
-    return RouteProviderResultSchema.parse({ status: "ok", paths: [detour] });
+    const paths =
+      JSON.stringify(direct.coordinates) === JSON.stringify(detour.coordinates)
+        ? [detour]
+        : [direct, detour];
+    return RouteProviderResultSchema.parse({ status: "ok", paths });
   }
 }

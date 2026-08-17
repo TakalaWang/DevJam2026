@@ -444,6 +444,40 @@ describe("day itinerary orchestration", () => {
     }
   });
 
+  it("keeps a visible transit mode when demo refresh preserves a safe baseline", async () => {
+    const baseline = RoutePathSchema.parse({
+      ...direct,
+      id: "demo-transit-direct",
+      profile: "transit",
+      transitSteps: [],
+    });
+    const unrelatedRoute = RoutePathSchema.parse({
+      ...baseline,
+      id: "unrelated-route",
+      coordinates: [
+        { latitude: 25.1, longitude: 121.4 },
+        { latitude: 25.12, longitude: 121.42 },
+      ],
+    });
+    const result = await new RoutePlanner(new DemoRouteProvider()).plan(
+      {
+        origin: { label: "台北車站", coordinate: baseline.coordinates[0] },
+        destination: { label: "台北小巨蛋", coordinate: baseline.coordinates[1] },
+        profiles: ["transit"],
+        maxExtraMinutes: 20,
+        bikeStations: [],
+      },
+      [demoSignal("road_closure", unrelatedRoute)],
+      baseline,
+    );
+
+    expect(result.status).toBe("ok");
+    if (result.status === "ok") {
+      expect(result.selected.id).toBe("demo-transit-direct");
+      expect(result.selected.transitSteps[0]?.mode).toBe("metro");
+    }
+  });
+
   it("moves a demo incident onto the current route when the trip is elsewhere", async () => {
     const route = RoutePathSchema.parse({
       ...direct,
