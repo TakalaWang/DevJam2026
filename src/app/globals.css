@@ -2734,3 +2734,34 @@ body,
   color: #6d7e82;
   background: #e9eff1;
 }
+
+/* Routa structural separation — keep the colored rail, lighten the header */
+.workbench-header {
+  background: #f4f7f5;
+  border-bottom-color: #cbd8dc;
+  box-shadow: 0 4px 16px rgba(32, 59, 69, 0.08);
+}
+
+.brand {
+  color: #203b45;
+}
+
+.brand > span:last-child {
+  color: #75848a;
+}
+
+.local-status,
+.status-chip {
+  color: #2f7775;
+  border-color: #a9cbc7;
+  background: #e3f0ed;
+}
+
+.status-chip {
+  border: 0;
+}
+
+.status-dot {
+  background: #2f8f8b;
+  box-shadow: 0 0 8px rgba(47, 143, 139, 0.3);
+}
