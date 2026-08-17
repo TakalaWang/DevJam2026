@@ -456,16 +456,6 @@ textarea:focus-visible {
   margin-left: 3px;
   font-size: 16px;
 }
-.conversation-note {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  padding-top: 10px;
-  color: #5f7280;
-  font:
-    9px "DM Mono",
-    monospace;
-}
 .primary-action,
 .secondary-action {
   width: 100%;
@@ -1009,7 +999,6 @@ body {
 
 .kicker,
 .message-label,
-.conversation-note,
 .workbench-footer {
   color: #78908e;
 }
@@ -1133,10 +1122,6 @@ body {
   border-radius: 10px;
   color: #ffffff;
   background: #268a7c;
-}
-
-.conversation-note {
-  color: #7c9591;
 }
 
 .notification-card,
@@ -1418,7 +1403,6 @@ body,
 
 .kicker,
 .message-label,
-.conversation-note,
 .workbench-footer {
   color: #849099;
 }
@@ -2911,7 +2895,6 @@ body,
   }
 
   .composer,
-  .conversation-note,
   .workbench-footer {
     flex: 0 0 auto;
   }
@@ -2947,15 +2930,6 @@ body,
 .map-fallback-wrap {
   display: grid;
   gap: 7px;
-}
-
-.map-fallback-note {
-  margin: 0;
-  color: #a45f4c;
-  font:
-    9px "DM Mono",
-    monospace;
-  line-height: 1.5;
 }
 
 .judge-demo-panel {

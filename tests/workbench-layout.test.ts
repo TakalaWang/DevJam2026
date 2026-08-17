@@ -32,6 +32,14 @@ describe("workbench independent scrolling layout", () => {
     expect(pageSource).not.toContain("右側會顯示完整行程");
   });
 
+  it("keeps the itinerary panel free of redundant helper copy", () => {
+    expect(pageSource).not.toContain("map-fallback-note");
+    expect(pageSource).not.toContain("可以在開始行程後繼續討論並優化");
+    expect(pageSource).toContain("<h2>行程總覽</h2>");
+    expect(stylesheet).not.toContain(".conversation-note");
+    expect(stylesheet).not.toContain(".map-fallback-note");
+  });
+
   it("confirms a pending plan from the conversation", () => {
     expect(pageSource).toContain('className="confirmation-action"');
     expect(pageSource).toContain('sendMessage("確認，就這樣安排")');

@@ -423,7 +423,6 @@ function RouteMap({ snapshot }: { snapshot: DayItinerarySnapshot }) {
     return (
       <div className="map-fallback-wrap">
         <SvgRouteMap snapshot={snapshot} />
-        <p className="map-fallback-note">此段交通不支援 Google Maps，已改用行程示意圖。</p>
       </div>
     );
   }
@@ -1118,10 +1117,6 @@ export default function Page() {
                   送出 <span aria-hidden="true">↗</span>
                 </button>
               </form>
-              <div className="conversation-note">
-                <span>可以在開始行程後繼續討論並優化</span>
-                <span>{itinerary?.revision ?? 0} revisions</span>
-              </div>
             </>
           )}
         </section>
@@ -1130,7 +1125,7 @@ export default function Page() {
           <section className="itinerary-panel" aria-label="目前行程安排">
             <div className="itinerary-heading">
               <div>
-                <h2>{itinerary.date}</h2>
+                <h2>行程總覽</h2>
               </div>
               {readyToStart && blockedLegCount === 0 && (
                 <button
