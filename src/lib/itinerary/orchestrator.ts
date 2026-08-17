@@ -257,7 +257,11 @@ export class ItineraryOrchestrator {
   }
 
   async demoRefresh(sessionId: string, scenario: DemoScenario): Promise<ItineraryOperationResult> {
-    return this.refresh(sessionId, [demoSignal(scenario)]);
+    const current = this.store.getSession(sessionId);
+    if (!current) throw new Error("找不到一天行程 session");
+    const activeRoute =
+      current.legs.find((leg) => leg.status === "active")?.route ?? current.legs[0]?.route;
+    return this.refresh(sessionId, [demoSignal(scenario, activeRoute)]);
   }
 
   async refreshLive(

@@ -15,6 +15,7 @@ import {
 import { FixtureItineraryAgent } from "../src/lib/conversation/fixtures";
 import { FixtureGoogleRoutesProvider } from "../src/lib/routing/fixtures";
 import { DemoRouteProvider } from "../src/lib/routing/demo";
+import { demoSignal } from "../src/lib/itinerary/demo";
 import { RoutePlanner, type RouteProvider } from "../src/lib/routing/planner";
 import { DayItineraryPlanner } from "../src/lib/itinerary/planner";
 import { ItineraryOrchestrator } from "../src/lib/itinerary/orchestrator";
@@ -294,6 +295,34 @@ describe("day itinerary orchestration", () => {
       const completed = await orchestrator.sendMessage(itinerary.id, "完成行程");
       expect(completed.itinerary.status, scenario).toBe("completed");
       expect(completed.itinerary.stops.every((stop) => stop.status === "visited")).toBe(true);
+    }
+  });
+
+  it("moves a demo incident onto the current route when the trip is elsewhere", async () => {
+    const route = RoutePathSchema.parse({
+      ...direct,
+      coordinates: [
+        { latitude: 25.1, longitude: 121.4 },
+        { latitude: 25.12, longitude: 121.42 },
+      ],
+    });
+    const planner = new RoutePlanner(new DemoRouteProvider());
+    const result = await planner.plan(
+      {
+        origin: { label: "A", coordinate: route.coordinates[0] },
+        destination: { label: "B", coordinate: route.coordinates[1] },
+        profiles: ["car"],
+        maxExtraMinutes: 20,
+        bikeStations: [],
+      },
+      [demoSignal("road_closure", route)],
+      route,
+    );
+
+    expect(result.status).toBe("ok");
+    if (result.status === "ok") {
+      expect(result.rerouted).toBe(true);
+      expect(result.selected.id).toBe("demo-car-detour");
     }
   });
 });
