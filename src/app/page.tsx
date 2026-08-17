@@ -875,7 +875,6 @@ export default function Page() {
     clearJudgeDemoTimers();
     judgeDemoStartedAtRef.current = undefined;
     setJudgeDemoPhase("stopped");
-    appendMessage("assistant", "評審 Demo 已停止；你仍然可以用右側控制列手動更新或完成行程。");
   }
 
   async function runJudgeDemo() {
@@ -903,16 +902,13 @@ export default function Page() {
       setJudgeDemoPhase(judgeDemoNextPhase("confirming") ?? "starting");
       setLoading(true);
 
-      const startResponse = await postPlan(`/api/day-plans/${planId}/start`);
+      const startResponse = await postPlan(
+        `/api/day-plans/${planId}/start?source=judge-demo`,
+      );
       if (judgeDemoRunRef.current !== runId) return;
       applySnapshot(startResponse.itinerary);
-      appendMessage(
-        "assistant",
-        startResponse.assistantMessage ?? "導航已啟動，Routa 開始監測你的行程。",
-      );
       setJudgeDemoPhase(judgeDemoNextPhase("starting") ?? "navigating");
 
-      appendMessage("assistant", "⚠️ 偵測到前方示範道路封閉。我先暫停原路線，重新評估下一段交通。");
       setJudgeDemoPhase(judgeDemoNextPhase("navigating") ?? "incident");
       const refreshResponse = await postPlan(`/api/day-plans/${planId}/demo`, {
         scenario: "road_closure",
@@ -922,42 +918,34 @@ export default function Page() {
       if (refreshResponse.notification) setLatestNotification(refreshResponse.notification);
       let refreshedStatus = refreshResponse.itinerary.status;
       if (refreshResponse.itinerary.status === "update_pending") {
-        appendMessage("user", "我確認這次改道安排，請繼續導航。");
-        const confirmation = await postPlan(`/api/day-plans/${planId}/messages`, {
-          message: "我確認這次改道安排，請繼續導航。",
-        });
+        const confirmation = await postPlan(
+          `/api/day-plans/${planId}/messages?source=judge-demo`,
+          { message: "我確認這次改道安排，請繼續導航。" },
+        );
         if (judgeDemoRunRef.current !== runId) return;
         applySnapshot(confirmation.itinerary);
         refreshedStatus = confirmation.itinerary.status;
-        if (confirmation.assistantMessage)
-          appendMessage("assistant", confirmation.assistantMessage);
       }
       if (refreshedStatus === "update_pending") {
         throw new Error("改道路線仍等待確認，Demo 無法繼續完成。");
       }
 
       setJudgeDemoPhase(judgeDemoNextPhase("incident") ?? "rerouting");
-      appendMessage(
-        "assistant",
-        "已完成重新規劃，受影響路段已標記並替換成可行路線；右側地圖與時間軸已同步更新。",
-      );
 
-      const completeResponse = await postPlan(`/api/day-plans/${planId}/complete`);
+      const completeResponse = await postPlan(
+        `/api/day-plans/${planId}/complete?source=judge-demo`,
+      );
       if (judgeDemoRunRef.current !== runId) return;
       applySnapshot(completeResponse.itinerary);
-      if (completeResponse.assistantMessage)
-        appendMessage("assistant", completeResponse.assistantMessage);
       setJudgeDemoElapsedMs(Date.now() - (judgeDemoStartedAtRef.current ?? Date.now()));
       setJudgeDemoPhase(judgeDemoNextPhase("rerouting") ?? "completed");
       judgeDemoStartedAtRef.current = undefined;
       clearJudgeDemoTimers();
-      appendMessage("assistant", "評審 Demo 完成：導航、災害通知與即時改道流程都已跑完。");
     } catch (requestError) {
       if (judgeDemoRunRef.current !== runId) return;
       const message = requestError instanceof Error ? requestError.message : "Demo 流程失敗";
       setError(message);
       setJudgeDemoPhase("error");
-      appendMessage("assistant", `Demo 無法完成：${message}`);
     } finally {
       if (judgeDemoRunRef.current === runId) {
         clearJudgeDemoTimers();

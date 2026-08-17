@@ -44,4 +44,12 @@ describe("workbench independent scrolling layout", () => {
     expect(pageSource).toContain("<ReactMarkdown>{message.content}</ReactMarkdown>");
     expect(pageSource).toContain("<p>{message.content}</p>");
   });
+
+  it("keeps judge demo status out of the conversation log", () => {
+    const demoStart = pageSource.indexOf("function stopJudgeDemo()");
+    const demoEnd = pageSource.indexOf("const readyToStart", demoStart);
+    const demoSource = pageSource.slice(demoStart, demoEnd);
+    expect(demoSource).not.toContain("appendMessage");
+    expect(demoSource).toContain("?source=judge-demo");
+  });
 });

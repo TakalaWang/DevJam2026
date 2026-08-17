@@ -117,10 +117,14 @@ export class ItineraryOrchestrator {
     return this.store.getRuns(id);
   }
 
-  async sendMessage(sessionId: string, userMessage: string): Promise<ItineraryOperationResult> {
+  async sendMessage(
+    sessionId: string,
+    userMessage: string,
+    runMessage = userMessage,
+  ): Promise<ItineraryOperationResult> {
     const current = this.store.getSession(sessionId);
     if (!current) throw new Error("找不到一天行程 session");
-    const run = this.store.createRun(sessionId, userMessage);
+    const run = this.store.createRun(sessionId, runMessage);
     this.store.saveRun({ ...run, status: "running" });
     try {
       const previousInteractionId = this.store
@@ -218,10 +222,10 @@ export class ItineraryOrchestrator {
     }
   }
 
-  async startNavigation(sessionId: string): Promise<ItineraryOperationResult> {
+  async startNavigation(sessionId: string, runMessage = "開始行程"): Promise<ItineraryOperationResult> {
     const current = this.store.getSession(sessionId);
     if (!current) throw new Error("找不到一天行程 session");
-    const run = this.store.createRun(sessionId, "開始行程");
+    const run = this.store.createRun(sessionId, runMessage);
     this.store.saveRun({ ...run, status: "running" });
     try {
       const itinerary = this.store.saveSession(this.startNavigationSnapshot(current));
