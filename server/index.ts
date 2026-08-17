@@ -27,7 +27,8 @@ app.post("/api/chat", async (request, response) => {
     const provider = process.env.GOOGLE_MAPS_API_KEY && mode === "gemini" ? googleRouteProvider(process.env.GOOGLE_MAPS_API_KEY) : demoRouteProvider;
     const plan = await optimizeItinerary(intent, provider);
     const fixedNames = plan.stops.filter((stop) => stop.fixed).map((stop) => stop.name).join("、");
-    const assistantMessage = mode === "gemini" ? `我已用 Gemini 解析你的需求，並用 Google 路況驗證。${plan.reason}\n固定行程：${fixedNames}` : `目前是 Demo mode：我先解析出行程骨架。${plan.reason}\n設定 GEMINI_API_KEY 後，我會改用自然語言理解。`;
+    const routeSource = process.env.GOOGLE_MAPS_API_KEY ? "Google 交通感知路線" : "Demo 路況資料（尚未設定 GOOGLE_MAPS_API_KEY）";
+    const assistantMessage = mode === "gemini" ? `我已用 Gemini 解析你的需求，並以${routeSource}驗證。${plan.reason}\n固定行程：${fixedNames}` : `目前是 Demo mode：我先解析出行程骨架。${plan.reason}\n設定 GEMINI_API_KEY 後，我會改用自然語言理解。`;
     return response.json({ mode, assistantMessage, intent, plan });
   } catch (error) {
     return response.status(422).json({ error: error instanceof Error ? error.message : "無法安排這段行程" });

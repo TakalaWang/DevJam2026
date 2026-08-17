@@ -78,7 +78,7 @@ export function parseGeminiIntent(text: string): ItineraryIntent {
   return {
     date: parsed.date ?? new Date().toISOString().slice(0, 10),
     start: { name: parsed.start.name, time: parsed.start.time ?? "13:00" },
-    stops: parsed.stops.map((stop) => ({ ...stop, flexible: typeof stop.flexible === "boolean" ? stop.flexible : !stop.time })),
+    stops: parsed.stops.map((stop) => ({ ...stop, ...(typeof stop.time === "string" ? { time: stop.time } : { time: undefined }), flexible: typeof stop.flexible === "boolean" ? stop.flexible : !stop.time })),
     preference: parsed.preference ?? "避開塞車",
   };
 }
