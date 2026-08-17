@@ -109,6 +109,23 @@ class CountingRouteProvider implements RouteProvider {
   }
 }
 
+class BlockedFirstStopProvider implements RouteProvider {
+  async calculate(input: RouteCalculationInput): Promise<RouteProviderResult> {
+    const blocked =
+      input.blockedSignals.length && input.request.destination.label === "華山文創園區";
+    return {
+      status: "ok",
+      paths: [input.blockedSignals.length ? (blocked ? transit : transitDetour) : transit],
+    };
+  }
+}
+
+class UnavailableRouteProvider implements RouteProvider {
+  async calculate(): Promise<RouteProviderResult> {
+    return { status: "unavailable", reason: "沒有可用路線" };
+  }
+}
+
 function service(
   agent: FixtureItineraryAgent = new FixtureItineraryAgent(),
   provider: RouteProvider = new FixtureGoogleRoutesProvider([
@@ -178,6 +195,17 @@ describe("day itinerary orchestration", () => {
     const started = await orchestrator.sendMessage(itinerary.id, "開始行程");
     expect(started.itinerary.status).toBe("active");
     expect(started.itinerary.currentStopId).toBe(started.itinerary.stops[0]?.id);
+  });
+
+  it("keeps an initially unroutable plan in conversation", async () => {
+    const orchestrator = service(new FixtureItineraryAgent(), new UnavailableRouteProvider());
+    const itinerary = orchestrator.createSession("user-1", today);
+
+    const proposed = await planConcert(orchestrator, itinerary);
+
+    expect(proposed.itinerary.status).toBe("discussing");
+    expect(proposed.itinerary.legs.some((leg) => leg.status === "blocked")).toBe(true);
+    expect(proposed.notification?.message).toContain("其他景點");
   });
 
   it("routes the return leg to the confirmed return location", async () => {
@@ -271,6 +299,44 @@ describe("day itinerary orchestration", () => {
     expect(acknowledged.itinerary.notifications[0]?.readAt).toBeDefined();
   });
 
+  it("asks for another destination and replaces a blocked stop", async () => {
+    const orchestrator = service(
+      new ConfirmationFixtureItineraryAgent(),
+      new BlockedFirstStopProvider(),
+    );
+    const itinerary = orchestrator.createSession("user-1", today);
+    await planConcert(orchestrator, itinerary);
+    await orchestrator.sendMessage(itinerary.id, "開始行程");
+
+    const refreshed = await orchestrator.refresh(itinerary.id, [
+      {
+        id: "flood-1",
+        kind: "flood_zone",
+        label: "淹水區",
+        polygon: [
+          { latitude: 25.04, longitude: 121.52 },
+          { latitude: 25.04, longitude: 121.54 },
+          { latitude: 25.05, longitude: 121.54 },
+          { latitude: 25.05, longitude: 121.52 },
+          { latitude: 25.04, longitude: 121.52 },
+        ],
+        severity: "blocked",
+        observedAt: "2026-08-17T16:00:00+08:00",
+        evidenceId: "e-flood",
+        summary: "道路積水禁止通行",
+      },
+    ]);
+
+    expect(refreshed.itinerary.legs.some((leg) => leg.status === "blocked")).toBe(true);
+    expect(refreshed.notification?.message).toContain("其他景點");
+    expect(refreshed.notification?.requiresConfirmation).toBe(false);
+    expect(refreshed.itinerary.status).toBe("active");
+
+    const replaced = await orchestrator.sendMessage(itinerary.id, "改去替代景點");
+    expect(replaced.itinerary.stops[0]?.title).toBe("替代景點");
+    expect(replaced.itinerary.legs.every((leg) => leg.status !== "blocked")).toBe(true);
+  });
+
   it("does not rebuild routes when live feeds have no actionable signals", async () => {
     const provider = new CountingRouteProvider(
       new FixtureGoogleRoutesProvider([
@@ -345,6 +411,8 @@ describe("day itinerary orchestration", () => {
     if (result.status === "ok") {
       expect(result.paths[0]?.transitSteps[0]).toMatchObject({
         mode: "metro",
+        lineColor: "#e3002c",
+        lineTextColor: "#ffffff",
         boardingStop: { name: "台北車站" },
         alightingStop: { name: "台北小巨蛋" },
       });

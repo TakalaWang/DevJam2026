@@ -331,6 +331,9 @@ textarea:focus-visible {
     monospace;
   letter-spacing: 0.1em;
 }
+.message.assistant .message-label {
+  font-size: 10px;
+}
 .message.user .message-label {
   color: var(--mint);
 }
@@ -3185,6 +3188,11 @@ body,
 }
 
 .transit-step strong {
+  display: inline-flex;
+  width: fit-content;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: #eaf4f2;
   color: #2f7078;
   font-size: 11px;
   font-weight: 600;
@@ -3233,7 +3241,7 @@ body,
   align-items: center;
   gap: 7px;
   min-height: 34px;
-  padding: 4px 10px 4px 6px;
+  padding: 4px 10px;
   border: 1px solid #79a6a4;
   border-radius: 999px;
   color: var(--mint-deep);
@@ -3243,44 +3251,7 @@ body,
   font-weight: 700;
 }
 
-.confirmation-action-mark {
-  position: relative;
-  width: 24px;
-  height: 24px;
-  flex: 0 0 auto;
-  border: 1px solid var(--mint);
-  border-radius: 50%;
-}
-
-.confirmation-action-mark::before {
-  position: absolute;
-  inset: 4px;
-  content: "";
-  border: 1px solid var(--mint);
-  border-radius: 50%;
-}
-
-.confirmation-action-mark::after {
-  position: absolute;
-  inset: 9px;
-  content: "";
-  border-radius: 50%;
-  background: var(--mint);
-}
-
 .confirmation-action:hover:not(:disabled) {
   color: #ffffff;
   background: var(--mint);
-}
-
-.confirmation-action:hover:not(:disabled) .confirmation-action-mark {
-  border-color: #ffffff;
-}
-
-.confirmation-action:hover:not(:disabled) .confirmation-action-mark::before {
-  border-color: #ffffff;
-}
-
-.confirmation-action:hover:not(:disabled) .confirmation-action-mark::after {
-  background: #ffffff;
 }

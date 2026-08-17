@@ -287,6 +287,37 @@ describe("day itinerary API", () => {
     }
   });
 
+  it("keeps judge demo lifecycle runs out of conversation history", async () => {
+    const orchestrator = service();
+    const itinerary = orchestrator.createSession("judge-demo-user", today);
+    await planConcert(orchestrator, itinerary.id);
+
+    const started = DayItineraryResponseSchema.parse(
+      await (
+        await createStartHandler(orchestrator)(
+          new Request(`http://localhost/api/day-plans/${itinerary.id}/start?source=judge-demo`),
+          { params: Promise.resolve({ id: itinerary.id }) },
+        )
+      ).json(),
+    );
+    expect(started.lastRun?.userMessage).toBe("system:judge_demo:start");
+
+    const completed = DayItineraryResponseSchema.parse(
+      await (
+        await createCompleteHandler(orchestrator)(
+          new Request(`http://localhost/api/day-plans/${itinerary.id}/complete?source=judge-demo`),
+          { params: Promise.resolve({ id: itinerary.id }) },
+        )
+      ).json(),
+    );
+    expect(completed.lastRun?.userMessage).toBe("system:judge_demo:complete");
+
+    expect(orchestrator.getRuns(itinerary.id).slice(-2).map((run) => run.userMessage)).toEqual([
+      "system:judge_demo:start",
+      "system:judge_demo:complete",
+    ]);
+  });
+
   it("lists, restores, demos, completes, and deletes a local day plan", async () => {
     const orchestrator = service();
     const created = DayItineraryResponseSchema.parse(

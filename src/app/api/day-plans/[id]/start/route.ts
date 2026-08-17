@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 
 export function createStartHandler(orchestrator: ItineraryOrchestrator) {
   return async function POST(
-    _request: Request,
+    request: Request,
     context: { params: Promise<{ id: string }> },
   ): Promise<Response> {
     const { id } = await context.params;
@@ -16,7 +16,11 @@ export function createStartHandler(orchestrator: ItineraryOrchestrator) {
       return Response.json(ApiErrorResponseSchema.parse({ error: "找不到一天行程 session" }), {
         status: 404,
       });
-    const result = await orchestrator.startNavigation(id);
+    const runMessage =
+      new URL(request.url).searchParams.get("source") === "judge-demo"
+        ? "system:judge_demo:start"
+        : undefined;
+    const result = await orchestrator.startNavigation(id, runMessage);
     return Response.json(DayItineraryResponseSchema.parse(result), {
       status: result.lastRun.status === "failed" ? 503 : 200,
     });

@@ -117,10 +117,14 @@ export class ItineraryOrchestrator {
     return this.store.getRuns(id);
   }
 
-  async sendMessage(sessionId: string, userMessage: string): Promise<ItineraryOperationResult> {
+  async sendMessage(
+    sessionId: string,
+    userMessage: string,
+    runMessage = userMessage,
+  ): Promise<ItineraryOperationResult> {
     const current = this.store.getSession(sessionId);
     if (!current) throw new Error("找不到一天行程 session");
-    const run = this.store.createRun(sessionId, userMessage);
+    const run = this.store.createRun(sessionId, runMessage);
     this.store.saveRun({ ...run, status: "running" });
     try {
       const previousInteractionId = this.store
@@ -131,15 +135,74 @@ export class ItineraryOrchestrator {
       const agentResult = await this.agent.interpret(current, userMessage, previousInteractionId);
       const parsedOutput = this.parseOutput(agentResult.output);
       const applied = await this.applyCommand(current, parsedOutput, userMessage);
-      const itinerary = applied.changed ? this.store.saveSession(applied.snapshot) : current;
+      let nextSnapshot = applied.snapshot;
+      let outputForRun = parsedOutput;
+      let notification: ItineraryNotification | undefined;
+      const alternativeLegIds = nextSnapshot.legs
+        .filter((leg) => leg.status === "blocked")
+        .map((leg) => leg.id);
+      const alternativeChanges = DayItineraryPlanner.routeChanges(
+        current,
+        nextSnapshot,
+        alternativeLegIds,
+        nextSnapshot.signals,
+      );
+      const asksForAlternative =
+        alternativeChanges.length > 0 &&
+        (!current.legs.some((leg) => leg.status === "blocked") ||
+          parsedOutput.command.action === "replace_stop");
+      if (asksForAlternative) {
+        const affectedLegIds = alternativeChanges.map((change) => change.legId);
+        const affectedStopIds = DayItineraryPlanner.affectedStopIds(nextSnapshot, affectedLegIds);
+        const evidenceIds = [
+          ...new Set(
+            nextSnapshot.legs
+              .filter((leg) => affectedLegIds.includes(leg.id))
+              .flatMap((leg) => leg.evidenceIds),
+          ),
+        ];
+        notification = await this.agent.draftNotification({
+          currentStatus: current.status,
+          affectedLegIds,
+          affectedStopIds,
+          reasonCodes: ["no_safe_route"],
+          evidenceIds,
+          changes: alternativeChanges,
+        });
+        notification = ItineraryNotificationSchema.parse({
+          ...notification,
+          affectedLegIds,
+          affectedStopIds,
+          changes: alternativeChanges,
+          requiresConfirmation: false,
+          evidenceIds,
+        });
+        nextSnapshot = DayItinerarySnapshotSchema.parse({
+          ...nextSnapshot,
+          status: nextSnapshot.status === "ready" ? "discussing" : nextSnapshot.status,
+          notifications: [...nextSnapshot.notifications, notification],
+        });
+        outputForRun = ConversationAgentOutputSchema.parse({
+          ...parsedOutput,
+          message: notification.message,
+        });
+      }
+      const itinerary =
+        applied.changed || notification ? this.store.saveSession(nextSnapshot) : current;
       const completed = this.store.saveRun({
         ...run,
         status: "succeeded",
-        output: parsedOutput,
+        output: outputForRun,
         interactionId: agentResult.interactionId,
+        ...(notification ? { notification } : {}),
         completedAt: now(),
       });
-      return { itinerary, lastRun: completed, assistantMessage: parsedOutput.message };
+      return {
+        itinerary,
+        lastRun: completed,
+        assistantMessage: outputForRun.message,
+        ...(notification ? { notification } : {}),
+      };
     } catch (error) {
       const failed = this.store.saveRun({
         ...run,
@@ -159,10 +222,10 @@ export class ItineraryOrchestrator {
     }
   }
 
-  async startNavigation(sessionId: string): Promise<ItineraryOperationResult> {
+  async startNavigation(sessionId: string, runMessage = "開始行程"): Promise<ItineraryOperationResult> {
     const current = this.store.getSession(sessionId);
     if (!current) throw new Error("找不到一天行程 session");
-    const run = this.store.createRun(sessionId, "開始行程");
+    const run = this.store.createRun(sessionId, runMessage);
     this.store.saveRun({ ...run, status: "running" });
     try {
       const itinerary = this.store.saveSession(this.startNavigationSnapshot(current));
@@ -227,6 +290,9 @@ export class ItineraryOrchestrator {
         notification = ItineraryNotificationSchema.parse({
           ...notification,
           changes,
+          requiresConfirmation: changes.some((change) => change.after.status === "blocked")
+            ? false
+            : notification.requiresConfirmation,
         });
         next = DayItinerarySnapshotSchema.parse({
           ...refreshed,
@@ -339,6 +405,26 @@ export class ItineraryOrchestrator {
         signals: [],
       });
       return { snapshot: await this.planner.rebuild(proposed, []), changed: true };
+    }
+    if (command.action === "replace_stop") {
+      const moving = current.stops.find((stop) => stop.id === command.stopId);
+      if (!moving) throw new Error("找不到要替換的景點");
+      const stops = current.stops.map((stop) =>
+        stop.id === command.stopId ? { ...command.stop, id: stop.id, status: "planned" } : stop,
+      );
+      const next = DayItinerarySnapshotSchema.parse({
+        ...current,
+        planningPhase: "refining",
+        planningFacts: facts,
+        status:
+          current.status === "active" || current.status === "update_pending"
+            ? "active"
+            : readiness.ready
+              ? "ready"
+              : "discussing",
+        stops,
+      });
+      return { snapshot: await this.planner.rebuild(next, current.signals), changed: true };
     }
     if (command.action === "add_stop") {
       const stops = [...current.stops];

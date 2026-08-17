@@ -30,6 +30,7 @@ const ConversationCommandModelSchema = z.object({
   action: z.enum([
     "propose_day",
     "add_stop",
+    "replace_stop",
     "remove_stop",
     "move_stop",
     "start_navigation",

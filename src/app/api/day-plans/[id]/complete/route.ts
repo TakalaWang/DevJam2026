@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 
 export function createCompleteHandler(orchestrator: ItineraryOrchestrator) {
   return async function POST(
-    _request: Request,
+    request: Request,
     context: { params: Promise<{ id: string }> },
   ): Promise<Response> {
     const { id } = await context.params;
@@ -17,7 +17,11 @@ export function createCompleteHandler(orchestrator: ItineraryOrchestrator) {
         status: 404,
       });
     }
-    const result = await orchestrator.sendMessage(id, "完成行程");
+    const runMessage =
+      new URL(request.url).searchParams.get("source") === "judge-demo"
+        ? "system:judge_demo:complete"
+        : undefined;
+    const result = await orchestrator.sendMessage(id, "完成行程", runMessage);
     return Response.json(DayItineraryResponseSchema.parse(result), {
       status: result.lastRun.status === "failed" ? 409 : 200,
     });

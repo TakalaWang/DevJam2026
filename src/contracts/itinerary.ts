@@ -73,6 +73,11 @@ export const ItineraryCommandSchema = z.discriminatedUnion("action", [
     stop: ItineraryStopDraftSchema,
     afterStopId: z.string().min(1).optional(),
   }),
+  z.object({
+    action: z.literal("replace_stop"),
+    stopId: z.string().min(1),
+    stop: ItineraryStopDraftSchema,
+  }),
   z.object({ action: z.literal("remove_stop"), stopId: z.string().min(1) }),
   z.object({
     action: z.literal("move_stop"),

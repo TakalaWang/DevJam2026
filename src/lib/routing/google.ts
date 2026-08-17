@@ -71,6 +71,8 @@ const GoogleStepSchema = z.object({
         .object({
           name: z.string().optional(),
           nameShort: z.string().optional(),
+          color: z.string().optional(),
+          textColor: z.string().optional(),
           vehicle: z.object({ type: z.string().optional() }).optional(),
         })
         .optional(),
@@ -289,6 +291,10 @@ function localizedText(value: { text?: string } | undefined): string | undefined
   return text || undefined;
 }
 
+function hexColor(value: string | undefined): string | undefined {
+  return value && /^#[0-9a-fA-F]{6}$/.test(value) ? value : undefined;
+}
+
 function readPolylineValue(encoded: string, start: number): { value: number; next: number } {
   let result = 0;
   let shift = 0;
@@ -353,12 +359,16 @@ function toRoutePath(
         (mode === "metro" ? details.transitLine?.name : details.transitLine?.nameShort) ??
         details.transitLine?.name ??
         details.tripShortText;
+      const lineColor = hexColor(details.transitLine?.color);
+      const lineTextColor = hexColor(details.transitLine?.textColor);
       const departureAt = timestamp(details.stopDetails.departureTime);
       const arrivalAt = timestamp(details.stopDetails.arrivalTime);
       return [
         {
           mode,
           ...(line ? { line } : {}),
+          ...(lineColor ? { lineColor } : {}),
+          ...(lineTextColor ? { lineTextColor } : {}),
           ...(details.headsign ? { headsign: details.headsign } : {}),
           boardingStop: { name: departureStop.name, coordinate: departureStop.location.latLng },
           alightingStop: { name: arrivalStop.name, coordinate: arrivalStop.location.latLng },

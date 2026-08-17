@@ -29,7 +29,11 @@ export function createMessageHandler(orchestrator: ItineraryOrchestrator) {
     }
     const parsed = MessageRequestSchema.safeParse(body);
     if (!parsed.success) return errorResponse("訊息格式錯誤", 400);
-    const result = await orchestrator.sendMessage(id, parsed.data.message);
+    const runMessage =
+      new URL(request.url).searchParams.get("source") === "judge-demo"
+        ? "system:judge_demo:confirmation"
+        : undefined;
+    const result = await orchestrator.sendMessage(id, parsed.data.message, runMessage);
     return Response.json(DayItineraryResponseSchema.parse(result), {
       status: result.lastRun.status === "failed" ? 503 : 200,
     });

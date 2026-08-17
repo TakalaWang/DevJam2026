@@ -90,6 +90,8 @@ export class DemoRouteProvider implements RouteProvider {
         ? [
             {
               mode: "metro",
+              lineColor: "#e3002c",
+              lineTextColor: "#ffffff",
               boardingStop: {
                 name: input.request.origin.label,
                 coordinate: input.request.origin.coordinate,
