@@ -2819,3 +2819,44 @@ body,
     flex: 0 0 auto;
   }
 }
+
+.google-route-map .google-map-canvas {
+  position: absolute;
+  inset: 0;
+}
+
+.google-route-map .map-caption {
+  z-index: 1;
+}
+
+.map-loading {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 1;
+  padding: 9px 12px;
+  transform: translate(-50%, -50%);
+  border: 1px solid rgba(203, 216, 220, 0.9);
+  border-radius: 999px;
+  color: #2d6870;
+  background: rgba(255, 253, 248, 0.92);
+  box-shadow: 0 5px 14px rgba(38, 58, 66, 0.12);
+  font:
+    10px "DM Mono",
+    monospace;
+  white-space: nowrap;
+}
+
+.map-fallback-wrap {
+  display: grid;
+  gap: 7px;
+}
+
+.map-fallback-note {
+  margin: 0;
+  color: #a45f4c;
+  font:
+    9px "DM Mono",
+    monospace;
+  line-height: 1.5;
+}

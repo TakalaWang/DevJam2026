@@ -12,6 +12,25 @@ import {
 type SnapshotRow = { state_json: string };
 type RunRow = { state_json: string };
 
+function parseStoredSnapshot(stateJson: string): DayItinerarySnapshot {
+  const raw = JSON.parse(stateJson) as {
+    legs?: Array<{ route?: { provider?: string } }>;
+  };
+
+  // Older local databases used `google_routes` before the route contract was
+  // simplified to the single Google provider. Keep those local sessions
+  // readable after an app update instead of failing the entire plan listing.
+  if (Array.isArray(raw.legs)) {
+    for (const leg of raw.legs) {
+      if (leg.route?.provider === "google_routes" || leg.route?.provider === "graphhopper") {
+        leg.route.provider = "google";
+      }
+    }
+  }
+
+  return DayItinerarySnapshotSchema.parse(raw);
+}
+
 export class ItineraryStore {
   private readonly database: DatabaseSync;
 
@@ -65,7 +84,7 @@ export class ItineraryStore {
     const row = this.database
       .prepare("SELECT state_json FROM day_itineraries WHERE id = ?")
       .get(id) as SnapshotRow | undefined;
-    return row ? DayItinerarySnapshotSchema.parse(JSON.parse(row.state_json)) : undefined;
+    return row ? parseStoredSnapshot(row.state_json) : undefined;
   }
 
   listSessions(userId: string): DayItinerarySnapshot[] {
@@ -74,7 +93,7 @@ export class ItineraryStore {
         "SELECT state_json FROM day_itineraries WHERE json_extract(state_json, '$.userId') = ? ORDER BY updated_at DESC",
       )
       .all(userId) as SnapshotRow[];
-    return rows.map((row) => DayItinerarySnapshotSchema.parse(JSON.parse(row.state_json)));
+    return rows.map((row) => parseStoredSnapshot(row.state_json));
   }
 
   deleteSession(id: string): boolean {

@@ -14,6 +14,14 @@ import {
 } from "../contracts";
 import { routaAssistantLabel, routaBrand, routaSubtitle } from "../lib/brand";
 import { composerKeyAction } from "../lib/composer";
+import {
+  hasGoogleMapsKey,
+  loadGoogleMaps,
+  type GoogleLatLngLiteral,
+  type GoogleMapInstance,
+  type GoogleMarkerInstance,
+  type GooglePolylineInstance,
+} from "../lib/google-maps";
 
 type ChatMessage = { id: number; role: "assistant" | "user"; content: string };
 type DemoScenario = "flood" | "road_closure" | "station_disruption" | "bike_unavailable";
@@ -130,7 +138,13 @@ function mapPosition(point: RoutePoint, points: RoutePoint[]): [number, number] 
   return [x, y];
 }
 
-function RouteMap({ snapshot }: { snapshot: DayItinerarySnapshot }) {
+function SvgRouteMap({
+  snapshot,
+  caption = "Google Routes",
+}: {
+  snapshot: DayItinerarySnapshot;
+  caption?: string;
+}) {
   const points = useMemo(() => {
     const stops = snapshot.stops.map((stop) => stop.location);
     return snapshot.origin ? [snapshot.origin, ...stops] : stops;
@@ -162,7 +176,120 @@ function RouteMap({ snapshot }: { snapshot: DayItinerarySnapshot }) {
         })}
       </svg>
       <div className="map-caption">
-        <span className="status-dot" /> Google Routes · {snapshot.legs.length} 段交通
+        <span className="status-dot" /> {caption} · {snapshot.legs.length} 段交通
+      </div>
+    </div>
+  );
+}
+
+function RouteMap({ snapshot }: { snapshot: DayItinerarySnapshot }) {
+  const mapElementRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<GoogleMapInstance | null>(null);
+  const overlaysRef = useRef<{
+    markers: GoogleMarkerInstance[];
+    polyline?: GooglePolylineInstance;
+  } | null>(null);
+  const [mapStatus, setMapStatus] = useState<"loading" | "ready" | "fallback">("loading");
+  const [mapError, setMapError] = useState("");
+  const points = useMemo(() => {
+    const stops = snapshot.stops.map((stop) => stop.location);
+    return snapshot.origin ? [snapshot.origin, ...stops] : stops;
+  }, [snapshot.origin, snapshot.stops]);
+  const routeCoordinates = useMemo(
+    () => snapshot.legs.flatMap((leg) => leg.route?.coordinates ?? []),
+    [snapshot.legs],
+  );
+
+  useEffect(() => {
+    let disposed = false;
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+    if (!hasGoogleMapsKey(apiKey) || !mapElementRef.current || points.length === 0) {
+      setMapStatus("fallback");
+      return () => {
+        disposed = true;
+      };
+    }
+
+    setMapStatus("loading");
+    setMapError("");
+    void loadGoogleMaps(apiKey)
+      .then((maps) => {
+        if (disposed || !mapElementRef.current) return;
+
+        overlaysRef.current?.polyline?.setMap(null);
+        overlaysRef.current?.markers.forEach((marker) => marker.setMap(null));
+
+        const map =
+          mapRef.current ??
+          new maps.Map(mapElementRef.current, {
+            center: { lat: points[0].coordinate.latitude, lng: points[0].coordinate.longitude },
+            zoom: 12,
+            mapTypeControl: false,
+            streetViewControl: false,
+            fullscreenControl: false,
+            clickableIcons: false,
+            gestureHandling: "greedy",
+          });
+        const bounds = new maps.LatLngBounds();
+        const path = routeCoordinates.map<GoogleLatLngLiteral>((coordinate) => ({
+          lat: coordinate.latitude,
+          lng: coordinate.longitude,
+        }));
+        path.forEach((point) => bounds.extend(point));
+        points.forEach((point) =>
+          bounds.extend({ lat: point.coordinate.latitude, lng: point.coordinate.longitude }),
+        );
+
+        const polyline =
+          path.length >= 2
+            ? new maps.Polyline({
+                map,
+                path,
+                geodesic: true,
+                strokeColor: "#dd775a",
+                strokeOpacity: 0.92,
+                strokeWeight: 5,
+              })
+            : undefined;
+        const markers = points.map(
+          (point, index) =>
+            new maps.Marker({
+              map,
+              position: { lat: point.coordinate.latitude, lng: point.coordinate.longitude },
+              title: point.label,
+            }),
+        );
+        map.fitBounds(bounds, 44);
+        mapRef.current = map;
+        overlaysRef.current = { markers, ...(polyline ? { polyline } : {}) };
+        setMapStatus("ready");
+      })
+      .catch((error: unknown) => {
+        if (disposed) return;
+        setMapError(error instanceof Error ? error.message : "Google Maps 載入失敗");
+        setMapStatus("fallback");
+      });
+
+    return () => {
+      disposed = true;
+    };
+  }, [points, routeCoordinates]);
+
+  if (mapStatus === "fallback") {
+    return (
+      <div className="map-fallback-wrap">
+        <SvgRouteMap snapshot={snapshot} caption="Google Routes · 示意圖" />
+        {mapError && <p className="map-fallback-note">{mapError}</p>}
+      </div>
+    );
+  }
+
+  return (
+    <div className="route-map google-route-map" aria-label="Google Maps 一日行程路線圖" role="img">
+      <div className="google-map-canvas" ref={mapElementRef} />
+      {mapStatus === "loading" && <div className="map-loading">正在載入 Google Maps…</div>}
+      <div className="map-caption">
+        <span className="status-dot" /> Google Maps · {snapshot.legs.length} 段交通
       </div>
     </div>
   );
