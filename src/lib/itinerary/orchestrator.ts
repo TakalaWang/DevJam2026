@@ -10,7 +10,6 @@ import {
   type ConversationAgentOutput,
   type ConversationRun,
   type DayItinerarySnapshot,
-  type ItineraryCommand,
   type ItineraryNotification,
   type RouteSignal,
   type CityFeedQuery,
@@ -102,11 +101,7 @@ export class ItineraryOrchestrator {
         )?.interactionId;
       const agentResult = await this.agent.interpret(current, userMessage, previousInteractionId);
       const parsedOutput = this.parseOutput(agentResult.output);
-      const applied = await this.applyCommand(
-        current,
-        parsedOutput,
-        userMessage,
-      );
+      const applied = await this.applyCommand(current, parsedOutput, userMessage);
       const itinerary = applied.changed ? this.store.saveSession(applied.snapshot) : current;
       const completed = this.store.saveRun({
         ...run,
@@ -264,10 +259,7 @@ export class ItineraryOrchestrator {
         ...current,
         planningPhase: "scheduling",
         planningFacts: facts,
-        status:
-          current.status === "active"
-            ? "active"
-            : "ready",
+        status: current.status === "active" ? "active" : "ready",
         date: command.date,
         startAt: command.startAt,
         endAt: command.endAt,
@@ -290,12 +282,7 @@ export class ItineraryOrchestrator {
         ...current,
         planningPhase: readiness.ready ? "refining" : planningPhase,
         planningFacts: facts,
-        status:
-          current.status === "active"
-            ? "active"
-            : readiness.ready
-              ? "ready"
-              : "discussing",
+        status: current.status === "active" ? "active" : readiness.ready ? "ready" : "discussing",
         stops,
       });
       return { snapshot: await this.planner.rebuild(next, current.signals), changed: true };
@@ -330,12 +317,7 @@ export class ItineraryOrchestrator {
         ...current,
         planningPhase: readiness.ready ? "refining" : planningPhase,
         planningFacts: facts,
-        status:
-          current.status === "active"
-            ? "active"
-            : readiness.ready
-              ? "ready"
-              : "discussing",
+        status: current.status === "active" ? "active" : readiness.ready ? "ready" : "discussing",
         stops: remaining,
       });
       return { snapshot: await this.planner.rebuild(next, current.signals), changed: true };
@@ -407,14 +389,15 @@ export class ItineraryOrchestrator {
     output: ConversationAgentOutput,
     userMessage: string,
   ) {
-    if (["start_navigation", "complete_navigation", "ack_notification"].includes(output.command.action)) {
+    if (
+      ["start_navigation", "complete_navigation", "ack_notification"].includes(
+        output.command.action,
+      )
+    ) {
       return PlanningFactsSchema.parse(current.planningFacts);
     }
     const facts = PlanningFactsSchema.parse(output.facts);
-    if (
-      current.planningFacts.confirmation === "pending" &&
-      hasExplicitConfirmation(userMessage)
-    ) {
+    if (current.planningFacts.confirmation === "pending" && hasExplicitConfirmation(userMessage)) {
       return PlanningFactsSchema.parse({
         ...facts,
         origin: facts.origin.value ? { ...facts.origin, status: "confirmed" } : facts.origin,
@@ -443,7 +426,8 @@ export class ItineraryOrchestrator {
     if (facts.confirmation === "confirmed") {
       return PlanningFactsSchema.parse({
         ...facts,
-        confirmation: current.planningFacts.confirmation === "pending" ? "pending" : "not_requested",
+        confirmation:
+          current.planningFacts.confirmation === "pending" ? "pending" : "not_requested",
       });
     }
     return facts;

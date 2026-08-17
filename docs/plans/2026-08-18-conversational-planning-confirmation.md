@@ -13,6 +13,7 @@
 ### Task 1: Add typed planning facts and readiness contracts
 
 **Files:**
+
 - Create: `src/contracts/planning.ts`
 - Modify: `src/contracts/conversation.ts`
 - Modify: `src/contracts/index.ts`
@@ -25,6 +26,7 @@ Write invalid/valid schema tests first, then run `pnpm exec vitest run tests/pla
 ### Task 2: Implement deterministic readiness validation
 
 **Files:**
+
 - Create: `src/lib/itinerary/readiness.ts`
 - Modify: `src/lib/itinerary/orchestrator.ts`
 - Test: `tests/itinerary-readiness.test.ts`
@@ -36,6 +38,7 @@ Write failing tests for missing transport, missing return plan, assumed departur
 ### Task 3: Make Gemini collect and confirm before scheduling
 
 **Files:**
+
 - Modify: `src/lib/conversation/gemini.ts`
 - Modify: `src/lib/conversation/fixtures.ts`
 - Modify: `src/lib/itinerary/orchestrator.ts`
@@ -49,6 +52,7 @@ Add a vague multi-turn fixture covering missing transport and return plan, then 
 ### Task 4: Show the assistant phase and missing facts in the local UI
 
 **Files:**
+
 - Modify: `src/app/page.tsx`
 - Modify: `src/contracts/api.ts` if the response envelope needs typed facts
 - Test: `tests/workbench-layout.test.ts` or a focused UI contract test

@@ -21,10 +21,7 @@ const emptyItinerary = DayItinerarySnapshotSchema.parse({
 describe("Gemini conversation contract boundary", () => {
   it("collects and confirms a concert request before proposing a day", async () => {
     const agent = new FixtureItineraryAgent();
-    const missing = await agent.interpret(
-      emptyItinerary,
-      "我今天想去聽演唱會",
-    );
+    const missing = await agent.interpret(emptyItinerary, "我今天想去聽演唱會");
     expect(missing.output.command.action).toBe("ask_clarification");
     expect(missing.output.planningPhase).toBe("collecting");
 

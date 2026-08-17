@@ -94,7 +94,8 @@ export class FixtureItineraryAgent implements ItineraryAgent {
       if (!hasDetails) {
         return result(
           ConversationAgentOutputSchema.parse({
-            message: "我可以幫你安排演唱會，但還需要出發位置、預計出門與回家時間、交通偏好，以及是否一定要回家。",
+            message:
+              "我可以幫你安排演唱會，但還需要出發位置、預計出門與回家時間、交通偏好，以及是否一定要回家。",
             planningPhase: "collecting",
             planningStatus: "needs_details",
             facts: collectingFacts("演唱會"),
@@ -108,7 +109,8 @@ export class FixtureItineraryAgent implements ItineraryAgent {
       if (!confirmed) {
         return result(
           ConversationAgentOutputSchema.parse({
-            message: "我整理好了：10:00 從台北車站出發，搭大眾運輸前往演唱會，22:00 前回到台北車站。這樣的安排可以嗎？",
+            message:
+              "我整理好了：10:00 從台北車站出發，搭大眾運輸前往演唱會，22:00 前回到台北車站。這樣的安排可以嗎？",
             planningPhase: "awaiting_confirmation",
             planningStatus: "awaiting_confirmation",
             facts: factsFor(itinerary.date, "provided", "演唱會"),
@@ -121,7 +123,8 @@ export class FixtureItineraryAgent implements ItineraryAgent {
       }
       return result(
         ConversationAgentOutputSchema.parse({
-          message: "需求已確認。我會安排從出門到回家的完整交通與活動，行程完成後就能在當天開始。",
+          message:
+            "需求已確認，我已安排從出門到回家的完整交通與活動：10:00 從台北車站出發，前往演唱會，22:00 前回到台北車站。行程已準備完成，今天可以出發時請按右側「開始行程」。",
           planningPhase: "scheduling",
           planningStatus: "ready",
           facts: factsFor(itinerary.date, "confirmed", "演唱會"),
@@ -179,7 +182,7 @@ export class FixtureItineraryAgent implements ItineraryAgent {
       return result(
         ConversationAgentOutputSchema.parse({
           message: confirmed
-            ? "需求已確認。我會安排看展、晚餐與完整往返交通。"
+            ? "需求已確認，我已安排看展、晚餐與完整往返交通。行程已準備完成，今天可以出發時請按右側「開始行程」。"
             : "我整理好了：12:00 從台北車站出發，下午看展、晚上吃飯，20:30 前回到台北車站。這樣的安排可以嗎？",
           planningPhase: confirmed ? "scheduling" : "awaiting_confirmation",
           planningStatus: confirmed ? "ready" : "awaiting_confirmation",

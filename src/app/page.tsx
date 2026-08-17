@@ -10,10 +10,12 @@ import {
   type DayItinerarySnapshot,
   type DayItinerarySummary,
   type ItineraryNotification,
+  type PlanningField,
   type RoutePoint,
 } from "../contracts";
 import { routaAssistantLabel, routaBrand, routaSubtitle } from "../lib/brand";
 import { composerKeyAction } from "../lib/composer";
+import { assessPlanningReadiness } from "../lib/itinerary/readiness";
 import {
   hasGoogleMapsKey,
   loadGoogleMaps,
@@ -66,6 +68,28 @@ function statusLabel(status: DayItinerarySnapshot["status"]): string {
         : status === "update_pending"
           ? "等待確認"
           : "已完成";
+}
+
+const planningFieldLabels: Record<PlanningField, string> = {
+  origin: "出發位置",
+  destinations: "想去的地點",
+  departure_at: "出門時間",
+  end_at: "結束／回家時間",
+  fixed_activities: "固定時間的活動",
+  transport_preference: "交通偏好",
+  return_plan: "回程安排",
+  constraints: "其他限制",
+  user_confirmation: "你的確認",
+};
+
+function planningPhaseLabel(phase: DayItinerarySnapshot["planningPhase"]): string {
+  return phase === "collecting"
+    ? "先了解你的需求"
+    : phase === "awaiting_confirmation"
+      ? "等待你確認需求"
+      : phase === "scheduling"
+        ? "正在建立完整行程"
+        : "可以繼續微調行程";
 }
 
 function summaryFromSnapshot(snapshot: DayItinerarySnapshot): DayItinerarySummary {
@@ -511,10 +535,10 @@ export default function Page() {
   }
 
   useEffect(() => {
-    const storedId = window.localStorage.getItem(sessionStorageKey);
     void getHistory()
       .then(async (items) => {
         setHistory(items);
+        const storedId = window.localStorage.getItem(sessionStorageKey);
         if (storedId && items.some((item) => item.id === storedId)) await selectPlan(storedId);
       })
       .catch((requestError: Error) => setError(requestError.message))
@@ -750,9 +774,6 @@ export default function Page() {
                 <div>
                   <h2>{itinerary?.date} 的行程計劃</h2>
                 </div>
-                <span className="status-chip">
-                  {itinerary ? statusLabel(itinerary.status) : "載入中"}
-                </span>
               </div>
               <div className="conversation-log" aria-live="polite">
                 {messages.map((message) => (
@@ -826,10 +847,16 @@ export default function Page() {
                 <div>
                   <h2>{itinerary.date}</h2>
                 </div>
-                <span className="status-chip">
-                  <span className="status-dot" />
-                  {statusLabel(itinerary.status)}
-                </span>
+                {readyToStart && blockedLegCount === 0 && (
+                  <button
+                    className="heading-action"
+                    disabled={loading || !isToday}
+                    onClick={() => void startPlan()}
+                    type="button"
+                  >
+                    {isToday ? "開始行程" : `請於 ${itinerary.date} 開始`} <span>→</span>
+                  </button>
+                )}
               </div>
               {notification && <NotificationCard notification={notification} />}
               <div className="route-summary">
@@ -842,30 +869,33 @@ export default function Page() {
                 </div>
                 <span className="route-source">GOOGLE ROUTES</span>
               </div>
+              {itinerary.status === "discussing" && (
+                <div className="planning-checklist">
+                  <div>
+                    <p className="kicker">01 / PLANNING STATUS</p>
+                    <strong>{planningPhaseLabel(itinerary.planningPhase)}</strong>
+                  </div>
+                  <ul>
+                    {assessPlanningReadiness(itinerary.planningFacts).missingFields.map((field) => (
+                      <li key={field}>{planningFieldLabels[field]}</li>
+                    ))}
+                  </ul>
+                  <span>
+                    {itinerary.planningPhase === "awaiting_confirmation"
+                      ? "請在左側對話確認摘要，確認後才會計算完整交通。"
+                      : "我會先把必要資訊問清楚，不會先替你猜測完整行程。"}
+                  </span>
+                </div>
+              )}
               <NavigationStatus snapshot={itinerary} />
               <RouteMap key={`${itinerary.id}-${itinerary.revision}`} snapshot={itinerary} />
               <StopTimeline snapshot={itinerary} />
-              {readyToStart && (
+              {readyToStart && blockedLegCount > 0 && (
                 <div className="start-block">
-                  {blockedLegCount > 0 ? (
-                    <p className="start-blocked">
-                      Routa 智旅已完成行程內容，但目前有 {blockedLegCount}{" "}
-                      段交通沒有可用路線，請先確認 Google Routes API 設定。
-                    </p>
-                  ) : (
-                    <>
-                      <p>智旅判定從出門到回家的安排已經完整。</p>
-                      <button
-                        className="primary-action"
-                        disabled={loading || !isToday}
-                        onClick={() => void startPlan()}
-                        type="button"
-                      >
-                        {isToday ? "開始今日行程" : `請於 ${itinerary.date} 當天開始`}{" "}
-                        <span>→</span>
-                      </button>
-                    </>
-                  )}
+                  <p className="start-blocked">
+                    Routa 智旅已完成行程內容，但目前有 {blockedLegCount}{" "}
+                    段交通沒有可用路線，請先確認 Google Routes API 設定。
+                  </p>
                 </div>
               )}
               {itinerary.status === "active" && (
