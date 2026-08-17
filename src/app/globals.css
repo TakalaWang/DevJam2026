@@ -164,6 +164,9 @@ textarea:focus-visible {
   justify-content: space-between;
   gap: 12px;
 }
+.sidebar-heading {
+  align-items: center;
+}
 .sidebar-heading h1,
 .conversation-heading h2,
 .itinerary-heading h2 {
@@ -180,7 +183,7 @@ textarea:focus-visible {
 }
 .icon-button {
   padding: 5px 8px;
-  border: 1px solid #39505a;
+  border: 0;
   color: var(--mint);
   background: transparent;
   cursor: pointer;
