@@ -735,10 +735,6 @@ export default function Page() {
           <strong>{routaBrand}</strong>
           <span>{routaSubtitle}</span>
         </div>
-        <div className="local-status">
-          <span className="status-dot" />
-          LOCAL ONLY · GEMINI + GOOGLE ROUTES
-        </div>
       </header>
       <div className="workbench-grid">
         <aside className="history-sidebar" aria-label="行程紀錄">
@@ -751,7 +747,6 @@ export default function Page() {
               ＋ 新增
             </button>
           </div>
-          <p className="sidebar-copy">每個日期是一個獨立的討論與執行紀錄。</p>
           <div className="history-list">
             {history.length ? (
               history.map((item) => (
@@ -780,7 +775,7 @@ export default function Page() {
                 </div>
               ))
             ) : (
-              <p className="history-empty">還沒有行程。先選日期，建立第一個出遊計劃。</p>
+              <p className="history-empty">還沒有行程。先選日期，建立第一個行程計劃。</p>
             )}
           </div>
         </aside>
@@ -788,13 +783,9 @@ export default function Page() {
         <section className="conversation-panel" aria-label="Routa 智旅行程討論">
           {!selectedId ? (
             <div className="create-plan">
-              <p className="kicker">01 / CREATE A DAY PLAN</p>
               <h2>
-                先決定哪一天，<em>再開始聊天。</em>
+                聊出你的行程，<em>隨時給你最佳路線。</em>
               </h2>
-              <p>
-                這是一個只在本機執行的工作台。建立日期後，智旅會陪你把出門、活動、交通和回家完整排好。
-              </p>
               <form onSubmit={createPlan}>
                 <label htmlFor="plan-date">出遊日期</label>
                 <input
@@ -805,7 +796,7 @@ export default function Page() {
                   value={planDate}
                 />
                 <button className="primary-action" disabled={loading} type="submit">
-                  建立出遊計劃 <span>→</span>
+                  建立行程計劃 <span>→</span>
                 </button>
               </form>
             </div>
@@ -814,7 +805,7 @@ export default function Page() {
               <div className="conversation-heading">
                 <div>
                   <p className="kicker">02 / ROUTA CONVERSATION</p>
-                  <h2>{itinerary?.date} 的出遊計畫</h2>
+                  <h2>{itinerary?.date} 的行程計劃</h2>
                 </div>
                 <span className="status-chip">
                   {itinerary ? statusLabel(itinerary.status) : "載入中"}
@@ -1025,11 +1016,6 @@ export default function Page() {
           {error}
         </p>
       )}
-      <footer className="workbench-footer">
-        <span>LOCAL DEVELOPMENT MODE</span>
-        <span>STRUCTURED STATE · ZOD</span>
-        <span>SMART ROUTING · GEMINI INTERACTIONS</span>
-      </footer>
     </main>
   );
 }

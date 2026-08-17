@@ -40,7 +40,7 @@ ROUTECRAFT_DEMO_MODE=true
 
 ## 完整操作流程（Web UI）
 
-1. 在日期欄選擇今天，按「建立出遊計劃」。後端會建立 `discussing` 的本機 session。
+1. 在日期欄選擇今天，按「建立行程計劃」。後端會建立 `discussing` 的本機 session。
 2. 在中間對話框描述出發地、目的地、固定活動、交通偏好，以及是否回到起點。例如：
 
    ```text
