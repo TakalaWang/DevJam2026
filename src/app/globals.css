@@ -125,6 +125,9 @@ textarea:focus-visible {
   grid-template-columns: 240px minmax(410px, 1fr) minmax(360px, 430px);
   min-height: calc(100vh - 111px);
 }
+.workbench-grid.without-itinerary {
+  grid-template-columns: 240px minmax(410px, 1fr);
+}
 .history-sidebar,
 .conversation-panel,
 .itinerary-panel {
@@ -769,6 +772,9 @@ textarea:focus-visible {
 @media (max-width: 1050px) {
   .workbench-grid {
     grid-template-columns: 205px minmax(360px, 1fr) 330px;
+  }
+  .workbench-grid.without-itinerary {
+    grid-template-columns: 205px minmax(410px, 1fr);
   }
   .history-sidebar,
   .conversation-panel,
@@ -3099,6 +3105,39 @@ body,
 
 .leg-line.current strong {
   color: #287875;
+}
+
+.transit-details {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 8px 21px;
+  padding-left: 12px;
+  border-left: 1px solid #d8e4e3;
+}
+
+.transit-step {
+  display: grid;
+  gap: 2px;
+  color: #6f7e81;
+  font-size: 10px;
+}
+
+.transit-step strong {
+  color: #2f7078;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.transit-step a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: #a8c3c7;
+  text-underline-offset: 2px;
+}
+
+.transit-step small {
+  color: #899395;
+  font-size: 9px;
 }
 
 @keyframes map-traveler-pulse {

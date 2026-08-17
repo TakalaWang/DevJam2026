@@ -19,6 +19,7 @@ pnpm dev
 - `GOOGLE_MAPS_API_KEY`：production mode 的伺服器端 Google Routes API key；`ROUTECRAFT_DEMO_MODE=true` 時不需要。
 - `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`：可選的瀏覽器端 Google Maps JavaScript API key；未設定時 UI 使用內建 SVG 示意圖，不影響路線 API。
 - `GOOGLE_ROUTES_BASE_URL`：Google Routes endpoint，預設 `https://routes.googleapis.com/directions/v2:computeRoutes`。
+- `GOOGLE_PLACES_API_KEY`／`GOOGLE_PLACES_BASE_URL`：可選的 Google Places transit station lookup；用來補月台、方向牌、站牌代碼與無障礙入口資訊。
 - `TDX_CLIENT_ID`／`TDX_CLIENT_SECRET`：TDX 交通、路況、YouBike、捷運／公車／臺鐵／高鐵異動。
 - `CWA_API_KEY`：中央氣象署天氣警特報。
 - `NCDR_API_KEY`：可選的 NCDR 災害示警 API；未設定時不啟用替代災防來源。

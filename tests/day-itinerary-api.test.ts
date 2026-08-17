@@ -35,6 +35,7 @@ const direct = {
   durationSeconds: 900,
   stationIds: [],
   instructions: [],
+  transitSteps: [],
   provider: "google" as const,
 };
 const transit = { ...direct, id: "transit", profile: "transit" as const };

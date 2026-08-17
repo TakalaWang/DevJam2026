@@ -120,6 +120,28 @@ export const RouteInstructionSchema = z.object({
   durationSeconds: z.number().nonnegative(),
 });
 
+export const TransitStopSchema = z.object({
+  name: z.string().min(1),
+  coordinate: CoordinateSchema,
+  platformCode: z.string().min(1).optional(),
+  signageText: z.string().min(1).optional(),
+  stopCode: z.string().min(1).optional(),
+  wheelchairAccessibleEntrance: z.boolean().optional(),
+});
+export type TransitStop = z.infer<typeof TransitStopSchema>;
+
+export const TransitStepSchema = z.object({
+  mode: z.enum(["bus", "metro", "train", "light_rail", "other"]),
+  line: z.string().min(1).optional(),
+  headsign: z.string().min(1).optional(),
+  boardingStop: TransitStopSchema,
+  alightingStop: TransitStopSchema,
+  departureAt: RouteTimestampSchema.optional(),
+  arrivalAt: RouteTimestampSchema.optional(),
+  stopCount: z.number().int().nonnegative().optional(),
+});
+export type TransitStep = z.infer<typeof TransitStepSchema>;
+
 export const RoutePathSchema = z.object({
   id: z.string().min(1),
   profile: RouteProfileSchema,
@@ -128,6 +150,7 @@ export const RoutePathSchema = z.object({
   durationSeconds: z.number().nonnegative(),
   stationIds: z.array(z.string().min(1)).default([]),
   instructions: z.array(RouteInstructionSchema).default([]),
+  transitSteps: z.array(TransitStepSchema).default([]),
   provider: z.literal("google"),
 });
 export type RoutePath = z.infer<typeof RoutePathSchema>;

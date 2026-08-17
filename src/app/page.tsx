@@ -64,6 +64,22 @@ function modeLabel(profile: string | undefined): string {
         : "開車";
 }
 
+function transitModeLabel(mode: string): string {
+  return mode === "bus"
+    ? "公車"
+    : mode === "metro"
+      ? "捷運"
+      : mode === "train"
+        ? "火車"
+        : mode === "light_rail"
+          ? "輕軌"
+          : "大眾運輸";
+}
+
+function stopMapUrl(stop: { coordinate: { latitude: number; longitude: number } }): string {
+  return `https://www.google.com/maps/search/?api=1&query=${stop.coordinate.latitude},${stop.coordinate.longitude}`;
+}
+
 function statusLabel(status: DayItinerarySnapshot["status"]): string {
   return status === "discussing"
     ? "討論中"
@@ -462,13 +478,75 @@ function LegLine({
   active?: boolean;
 }) {
   return (
-    <div className={`leg-line ${leg.status} ${active ? "current" : ""}`}>
-      <span>↳</span>
-      <strong>{leg.status === "blocked" ? "路段受阻" : modeLabel(leg.route?.profile)}</strong>
-      <span>
-        {leg.status === "blocked" ? leg.reason : formatDuration(leg.route?.durationSeconds)}
-      </span>
-    </div>
+    <>
+      <div className={`leg-line ${leg.status} ${active ? "current" : ""}`}>
+        <span>↳</span>
+        <strong>{leg.status === "blocked" ? "路段受阻" : modeLabel(leg.route?.profile)}</strong>
+        <span>
+          {leg.status === "blocked" ? leg.reason : formatDuration(leg.route?.durationSeconds)}
+        </span>
+      </div>
+      {leg.route?.profile === "transit" && leg.route.transitSteps.length > 0 && (
+        <div className="transit-details">
+          {leg.route.transitSteps.map((step, index) => (
+            <div
+              className="transit-step"
+              key={`${step.boardingStop.name}-${step.alightingStop.name}-${index}`}
+            >
+              <strong>
+                {transitModeLabel(step.mode)}
+                {step.line ? ` ${step.line}` : ""}
+              </strong>
+              {step.headsign && <span>往 {step.headsign}</span>}
+              <span>
+                <a href={stopMapUrl(step.boardingStop)} rel="noreferrer" target="_blank">
+                  {step.boardingStop.name} 上車
+                </a>
+                {" → "}
+                <a href={stopMapUrl(step.alightingStop)} rel="noreferrer" target="_blank">
+                  {step.alightingStop.name} 下車
+                </a>
+              </span>
+              {(step.boardingStop.platformCode ||
+                step.boardingStop.stopCode ||
+                step.boardingStop.signageText) && (
+                <small>
+                  上車點：
+                  {[
+                    step.boardingStop.platformCode && `月台 ${step.boardingStop.platformCode}`,
+                    step.boardingStop.stopCode && `站牌 ${step.boardingStop.stopCode}`,
+                    step.boardingStop.signageText,
+                    step.boardingStop.wheelchairAccessibleEntrance && "無障礙入口",
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </small>
+              )}
+              {(step.alightingStop.platformCode ||
+                step.alightingStop.stopCode ||
+                step.alightingStop.signageText) && (
+                <small>
+                  下車點：
+                  {[
+                    step.alightingStop.platformCode && `月台 ${step.alightingStop.platformCode}`,
+                    step.alightingStop.stopCode && `站牌 ${step.alightingStop.stopCode}`,
+                    step.alightingStop.signageText,
+                    step.alightingStop.wheelchairAccessibleEntrance && "無障礙入口",
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </small>
+              )}
+              {(step.departureAt || step.arrivalAt) && (
+                <small>
+                  {formatItineraryTime(step.departureAt)} → {formatItineraryTime(step.arrivalAt)}
+                </small>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </>
   );
 }
 

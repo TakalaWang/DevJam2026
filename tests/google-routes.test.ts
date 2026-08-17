@@ -116,6 +116,161 @@ describe("Google Routes provider", () => {
     expect(JSON.parse(body).routingPreference).toBeUndefined();
   });
 
+  it("keeps Google transit line and boarding details", async () => {
+    const provider = new GoogleRoutesProvider({
+      apiKey: "test-key",
+      fetchImpl: async (_input, init) => {
+        expect(
+          String(init?.headers && new Headers(init.headers).get("x-goog-fieldmask")),
+        ).toContain("routes.legs.steps.transitDetails");
+        return new Response(
+          JSON.stringify({
+            routes: [
+              {
+                distanceMeters: 5000,
+                duration: "600s",
+                polyline: { encodedPolyline: "_sywC_nqdVo}@o}@" },
+                legs: [
+                  {
+                    steps: [
+                      {
+                        transitDetails: {
+                          headsign: "南港展覽館",
+                          stopCount: 4,
+                          transitLine: { nameShort: "307", vehicle: { type: "BUS" } },
+                          stopDetails: {
+                            departureStop: {
+                              name: "台北車站",
+                              location: { latLng: { latitude: 25.0478, longitude: 121.517 } },
+                            },
+                            departureTime: "2026-08-18T05:00:00Z",
+                            arrivalStop: {
+                              name: "市政府",
+                              location: { latLng: { latitude: 25.0408, longitude: 121.567 } },
+                            },
+                            arrivalTime: "2026-08-18T05:10:00Z",
+                          },
+                        },
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          }),
+          { status: 200 },
+        );
+      },
+    });
+
+    const result = await provider.calculate({
+      request: { ...request, profiles: ["transit"] },
+      profile: "transit",
+      blockedSignals: [],
+    });
+
+    expect(result.status).toBe("ok");
+    if (result.status === "ok") {
+      expect(result.paths[0]?.transitSteps).toEqual([
+        {
+          mode: "bus",
+          line: "307",
+          headsign: "南港展覽館",
+          boardingStop: {
+            name: "台北車站",
+            coordinate: { latitude: 25.0478, longitude: 121.517 },
+          },
+          alightingStop: {
+            name: "市政府",
+            coordinate: { latitude: 25.0408, longitude: 121.567 },
+          },
+          departureAt: "2026-08-18T05:00:00.000Z",
+          arrivalAt: "2026-08-18T05:10:00.000Z",
+          stopCount: 4,
+        },
+      ]);
+    }
+  });
+
+  it("enriches transit stops with Places platform and stop codes when configured", async () => {
+    const provider = new GoogleRoutesProvider({
+      apiKey: "routes-key",
+      placesApiKey: "places-key",
+      placesBaseUrl: "https://places.test/v1/places:searchText",
+      fetchImpl: async (input) => {
+        if (String(input).includes("places.test")) {
+          return new Response(
+            JSON.stringify({
+              places: [
+                {
+                  transitStation: {
+                    stops: [
+                      {
+                        platformCode: { text: "月台 2" },
+                        signageText: { text: "往南港展覽館" },
+                        stopCode: { text: "307-01" },
+                        location: { latitude: 25.0478, longitude: 121.517 },
+                      },
+                    ],
+                  },
+                },
+              ],
+            }),
+            { status: 200 },
+          );
+        }
+        return new Response(
+          JSON.stringify({
+            routes: [
+              {
+                distanceMeters: 5000,
+                duration: "120s",
+                polyline: { encodedPolyline: "_sywC_nqdVo}@o}@" },
+                legs: [
+                  {
+                    steps: [
+                      {
+                        transitDetails: {
+                          transitLine: { nameShort: "307", vehicle: { type: "BUS" } },
+                          stopDetails: {
+                            departureStop: {
+                              name: "台北車站",
+                              location: { latLng: { latitude: 25.0478, longitude: 121.517 } },
+                            },
+                            arrivalStop: {
+                              name: "市政府",
+                              location: { latLng: { latitude: 25.0408, longitude: 121.567 } },
+                            },
+                          },
+                        },
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          }),
+          { status: 200 },
+        );
+      },
+    });
+
+    const result = await provider.calculate({
+      request: { ...request, profiles: ["transit"] },
+      profile: "transit",
+      blockedSignals: [],
+    });
+
+    expect(result.status).toBe("ok");
+    if (result.status === "ok") {
+      expect(result.paths[0]?.transitSteps[0]?.boardingStop).toMatchObject({
+        platformCode: "月台 2",
+        signageText: "往南港展覽館",
+        stopCode: "307-01",
+      });
+    }
+  });
+
   it("accepts transit steps without text navigation instructions", async () => {
     const provider = new GoogleRoutesProvider({
       apiKey: "test-key",
