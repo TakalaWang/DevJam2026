@@ -1,6 +1,9 @@
 "use client";
 
-import { FormEvent, useRef, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
+import { scrollChatLog } from "../lib/chat-scroll";
+import { clearComposerInput } from "../lib/composer-clear";
+import { composerKeyAction, isComposingEnter } from "../lib/composer";
 import { itineraryStops, routeSummary } from "../lib/itinerary";
 import { readSseStream } from "../lib/sse";
 
@@ -20,20 +23,31 @@ export default function Page() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const nextMessageId = useRef(1);
+  const chatLogRef = useRef<HTMLDivElement>(null);
+  const composerFormRef = useRef<HTMLFormElement>(null);
+  const composerInputRef = useRef<HTMLTextAreaElement>(null);
+  const isComposingRef = useRef(false);
+
+  useEffect(() => {
+    if (chatLogRef.current) scrollChatLog(chatLogRef.current);
+  }, [messages, loading]);
 
   async function sendMessage(event: FormEvent) {
     event.preventDefault();
+    if (isComposingRef.current) return;
     const content = draft.trim();
     if (!content || loading) return;
 
     const userMessage: ChatMessage = { id: nextMessageId.current++, role: "user", content };
     const assistantId = nextMessageId.current++;
+    setDraft("");
+    if (composerInputRef.current) clearComposerInput(composerInputRef.current);
+    composerFormRef.current?.reset();
     setMessages((current) => [
       ...current,
       userMessage,
       { id: assistantId, role: "assistant", content: "" },
     ]);
-    setDraft("");
     setError("");
     setLoading(true);
 
@@ -103,7 +117,7 @@ export default function Page() {
             <p className="subcopy">先說出你的想法，我會陪你一步一步整理出適合台灣旅程的方向。</p>
           </div>
 
-          <div className="chat-log" aria-live="polite">
+          <div className="chat-log" aria-live="polite" ref={chatLogRef}>
             {messages.map((message) => (
               <div className={`message ${message.role}`} key={message.id}>
                 <span className="message-label">
@@ -123,22 +137,33 @@ export default function Page() {
             )}
           </div>
 
-          <form className="chat-composer" onSubmit={sendMessage}>
+          <form className="chat-composer" onSubmit={sendMessage} ref={composerFormRef}>
             <textarea
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
               placeholder="像聊天一樣描述你的旅程…"
               rows={3}
               aria-label="輸入訊息"
+              ref={composerInputRef}
+              onCompositionStart={() => {
+                isComposingRef.current = true;
+              }}
+              onCompositionEnd={() => {
+                isComposingRef.current = false;
+              }}
               onKeyDown={(event) => {
-                if (event.key === "Enter" && !event.shiftKey) {
+                if (isComposingEnter(event, isComposingRef.current)) {
                   event.preventDefault();
-                  void sendMessage(event);
+                  return;
+                }
+                if (composerKeyAction(event) === "send") {
+                  event.preventDefault();
+                  void sendMessage(event as unknown as FormEvent);
                 }
               }}
             />
             <div className="composer-footer">
-              <span>Enter 傳送 · Shift + Enter 換行</span>
+              <span>Enter 送出 · Shift + Enter 換行</span>
               <button type="submit" aria-label="傳送" disabled={loading}>
                 ↗
               </button>

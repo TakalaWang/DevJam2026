@@ -6,6 +6,7 @@
 node_modules/
 .worktrees/
 .next/
+.playwright-mcp/
 .data/
 dist/
 __pycache__/
