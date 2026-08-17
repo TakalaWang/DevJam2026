@@ -120,6 +120,29 @@ export class FixtureItineraryAgent implements ItineraryAgent {
         }),
       );
     }
+    const wantsRecommendations = /推薦|出去玩|不知道去哪|哪裡好玩/.test(context);
+    const region = ["中山", "大安", "信義", "西門町", "淡水", "北投"].find((name) =>
+      context.includes(name),
+    );
+    if (!itinerary.stops.length && wantsRecommendations) {
+      const message = region
+        ? `${region}很適合慢慢玩，我先給你 3 個候選景點（都還沒放進行程）：赤峰街逛街與咖啡、雙連市場吃在地小吃、台北當代藝術館看展。你想選哪一個？也可以告訴我想要美食、展覽或戶外，我再縮小範圍。`
+        : "可以，我先幫你縮小範圍。你想玩哪個城市或區域？如果還沒決定，台北可以先從中山（街區與咖啡）、大安（公園與美食）、信義（景觀與購物）三個候選方向挑一個；選定後我再推薦 2–3 個景點。";
+      return result(
+        ConversationAgentOutputSchema.parse({
+          message,
+          planningPhase: "collecting",
+          planningStatus: "needs_details",
+          facts: itinerary.planningFacts,
+          command: {
+            action: "ask_clarification",
+            question: region
+              ? "請從候選景點中選一個，或告訴我想要的活動類型。"
+              : "請告訴我想玩的城市或區域，以及偏好的活動類型。",
+          },
+        }),
+      );
+    }
     if (context.includes("演唱會")) {
       const confirmed = /確認|沒問題|沒有問題|可以|對的|正確|就這樣|ok|okay/i.test(userMessage);
       const hasDetails = context.includes("台北車站");

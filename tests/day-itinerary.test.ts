@@ -86,6 +86,22 @@ class ConfirmationFixtureItineraryAgent extends FixtureItineraryAgent {
   }
 }
 
+class FixtureAgentWithoutConstraints extends FixtureItineraryAgent {
+  override async interpret(
+    itinerary: Parameters<FixtureItineraryAgent["interpret"]>[0],
+    userMessage: string,
+  ): Promise<ConversationAgentResult> {
+    const result = await super.interpret(itinerary, userMessage);
+    return ConversationAgentResultSchema.parse({
+      ...result,
+      output: ConversationAgentOutputSchema.parse({
+        ...result.output,
+        facts: { ...result.output.facts, constraints: { status: "missing" } },
+      }),
+    });
+  }
+}
+
 class EmptyCityGateway extends CityDataGateway {
   override async refresh(): Promise<CityFeedSnapshot> {
     return CityFeedSnapshotSchema.parse({
@@ -157,6 +173,15 @@ async function planConcert(
 }
 
 describe("day itinerary orchestration", () => {
+  it("can schedule a confirmed plan when constraints were omitted", async () => {
+    const orchestrator = service(new FixtureAgentWithoutConstraints());
+    const itinerary = orchestrator.createSession("user-1", today);
+    const proposed = await planConcert(orchestrator, itinerary);
+
+    expect(proposed.itinerary.status).toBe("ready");
+    expect(proposed.itinerary.stops).toHaveLength(2);
+  });
+
   it("clarifies a vague request before filling a blank day", async () => {
     const orchestrator = service();
     const itinerary = orchestrator.createSession("user-1", today);

@@ -37,7 +37,6 @@ describe("itinerary readiness", () => {
       "fixed_activities",
       "transport_preference",
       "return_plan",
-      "constraints",
       "user_confirmation",
     ]);
   });
@@ -55,6 +54,16 @@ describe("itinerary readiness", () => {
 
   it("accepts only confirmed complete facts", () => {
     expect(assessPlanningReadiness(completeFacts)).toEqual({
+      ready: true,
+      missingFields: [],
+      assumptions: [],
+    });
+  });
+
+  it("does not require constraints when the user did not provide any", () => {
+    expect(
+      assessPlanningReadiness({ ...completeFacts, constraints: { status: "missing" } }),
+    ).toEqual({
       ready: true,
       missingFields: [],
       assumptions: [],

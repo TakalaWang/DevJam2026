@@ -21,7 +21,6 @@ export function hasCollectedPlanningFacts(rawFacts: PlanningFacts): boolean {
     facts.fixedActivities.value,
     facts.transportPreference.value,
     facts.returnPlan.value,
-    facts.constraints.value,
   ].every(Boolean);
 }
 
@@ -35,7 +34,6 @@ export function assessPlanningReadiness(rawFacts: PlanningFacts) {
     { field: "fixed_activities", status: facts.fixedActivities.status },
     { field: "transport_preference", status: facts.transportPreference.status },
     { field: "return_plan", status: facts.returnPlan.status },
-    { field: "constraints", status: facts.constraints.status },
   ];
   const missingFields = fields
     .filter((field) => field.status !== "confirmed")

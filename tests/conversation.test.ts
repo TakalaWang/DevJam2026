@@ -19,6 +19,28 @@ const emptyItinerary = DayItinerarySnapshotSchema.parse({
 });
 
 describe("Gemini conversation contract boundary", () => {
+  it("asks for an area and offers choices for a broad outing request", async () => {
+    const result = await new FixtureItineraryAgent().interpret(
+      emptyItinerary,
+      "我今天想出去玩，不知道去哪裡",
+    );
+
+    expect(result.output.command.action).toBe("ask_clarification");
+    expect(result.output.message).toContain("區域");
+    expect(result.output.message).toContain("候選");
+  });
+
+  it("recommends places after the user names an area", async () => {
+    const result = await new FixtureItineraryAgent().interpret(
+      emptyItinerary,
+      "我想去中山走走，推薦一些景點",
+    );
+
+    expect(result.output.command.action).toBe("ask_clarification");
+    expect(result.output.message).toContain("中山");
+    expect(result.output.message).toContain("赤峰街");
+  });
+
   it("collects and confirms a concert request before proposing a day", async () => {
     const agent = new FixtureItineraryAgent();
     const missing = await agent.interpret(emptyItinerary, "我今天想去聽演唱會");

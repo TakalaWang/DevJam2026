@@ -2561,6 +2561,7 @@ body,
 
 .history-sidebar .sidebar-heading h1 {
   color: #f7fbf8;
+  line-height: 24px;
 }
 
 .history-sidebar .sidebar-copy {
@@ -2574,9 +2575,9 @@ body,
 }
 
 .history-sidebar .history-item.selected {
-  border-color: #e2b458;
-  background: #355965;
-  box-shadow: inset 3px 0 0 #e2b458;
+  border-color: #50737b;
+  background: #3b606b;
+  box-shadow: none;
 }
 
 .history-sidebar .history-select,
@@ -3199,6 +3200,8 @@ body,
 }
 
 .history-sidebar .icon-button {
+  min-height: 0;
+  height: 24px;
   background: transparent;
 }
 
