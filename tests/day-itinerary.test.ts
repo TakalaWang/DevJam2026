@@ -345,6 +345,8 @@ describe("day itinerary orchestration", () => {
     if (result.status === "ok") {
       expect(result.paths[0]?.transitSteps[0]).toMatchObject({
         mode: "metro",
+        lineColor: "#e3002c",
+        lineTextColor: "#ffffff",
         boardingStop: { name: "台北車站" },
         alightingStop: { name: "台北小巨蛋" },
       });

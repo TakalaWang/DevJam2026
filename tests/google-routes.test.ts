@@ -137,7 +137,12 @@ describe("Google Routes provider", () => {
                         transitDetails: {
                           headsign: "南港展覽館",
                           stopCount: 4,
-                          transitLine: { nameShort: "307", vehicle: { type: "BUS" } },
+                          transitLine: {
+                            nameShort: "307",
+                            color: "#0070c0",
+                            textColor: "#ffffff",
+                            vehicle: { type: "BUS" },
+                          },
                           stopDetails: {
                             departureStop: {
                               name: "台北車站",
@@ -175,6 +180,8 @@ describe("Google Routes provider", () => {
         {
           mode: "bus",
           line: "307",
+          lineColor: "#0070c0",
+          lineTextColor: "#ffffff",
           headsign: "南港展覽館",
           boardingStop: {
             name: "台北車站",

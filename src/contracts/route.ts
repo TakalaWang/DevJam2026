@@ -130,9 +130,13 @@ export const TransitStopSchema = z.object({
 });
 export type TransitStop = z.infer<typeof TransitStopSchema>;
 
+const TransitLineColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/);
+
 export const TransitStepSchema = z.object({
   mode: z.enum(["bus", "metro", "train", "light_rail", "other"]),
   line: z.string().min(1).optional(),
+  lineColor: TransitLineColorSchema.optional(),
+  lineTextColor: TransitLineColorSchema.optional(),
   headsign: z.string().min(1).optional(),
   boardingStop: TransitStopSchema,
   alightingStop: TransitStopSchema,

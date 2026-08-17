@@ -493,7 +493,7 @@ function LegLine({
               className="transit-step"
               key={`${step.boardingStop.name}-${step.alightingStop.name}-${index}`}
             >
-              <strong>
+              <strong style={{ backgroundColor: step.lineColor, color: step.lineTextColor }}>
                 {transitModeLabel(step.mode)}
                 {step.line ? ` ${step.line}` : ""}
               </strong>
