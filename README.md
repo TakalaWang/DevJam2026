@@ -1,26 +1,44 @@
-# Routecraft · 避塞車行程 Agent
+# Routecraft · 台灣旅遊聊天助理
 
-這是一個自然語言行程規劃介面：使用者在左側像聊天一樣描述一天的安排，Gemini 解析固定約會、彈性景點與交通偏好；後端再用 Google Routes API 的交通感知路線驗證，右側呈現可行的時間軸與地圖。
-
-固定時間不可移動；沒有固定時間的景點可以依交通時間重排。每次重排都會在聊天回覆中說明原因。
+Routecraft 是一個以自然語言開始台灣旅遊規劃的聊天介面。這個版本先提供 Gemini 基礎多輪聊天，回覆透過 SSE 串流即時顯示；右側行程面板會在後續版本接上完整行程生成。
 
 ## 啟動
 
 ```bash
-npm install
-npm run dev
+pnpm install
+cp .env.example .env.local
+pnpm dev
 ```
 
-- 前端：<http://localhost:5173>
-- API server：<http://localhost:8787>
+開啟 <http://localhost:3000>，並在 `.env.local` 設定 `GEMINI_API_KEY`。
 
-沒有設定 Key 時會進入 Demo mode，仍可用自然語言展示基本解析流程。正式模式請複製 `.env.example` 為 `.env`，填入 `GEMINI_API_KEY` 與 `GOOGLE_MAPS_API_KEY`。
+對話狀態由 Gemini Interactions API 管理，前端保存 `interactionId` 並在下一輪傳回。重新整理頁面會開始新的對話。
 
 ## 驗證
 
 ```bash
-npm test
-npm run build
+pnpm test
+pnpm run lint
+pnpm run format:check
+pnpm run build
 ```
 
-Gemini 與 Google API Key 只由 Express server 讀取，不會送到瀏覽器。
+## SSE API
+
+```http
+POST /api/chat
+Content-Type: application/json
+```
+
+```json
+{
+  "message": "我想安排台南兩天一夜",
+  "interactionId": "optional-previous-interaction-id"
+}
+```
+
+回應為 `text/event-stream`，事件包含：
+
+- `text`：Gemini 回覆的文字片段
+- `done`：本輪新的 `interactionId`
+- `error`：串流中途發生的錯誤
