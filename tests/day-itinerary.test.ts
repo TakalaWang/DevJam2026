@@ -1,11 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { RoutePathSchema } from "../src/contracts";
+import {
+  CityFeedSnapshotSchema,
+  ConversationAgentOutputSchema,
+  ConversationAgentResultSchema,
+  ItineraryNotificationSchema,
+  RoutePathSchema,
+  type CityFeedSnapshot,
+  type ConversationAgentResult,
+  type NotificationAgentInput,
+  type NotificationAgentOutput,
+  type RouteCalculationInput,
+  type RouteProviderResult,
+} from "../src/contracts";
 import { FixtureItineraryAgent } from "../src/lib/conversation/fixtures";
 import { FixtureGoogleRoutesProvider } from "../src/lib/routing/fixtures";
-import { RoutePlanner } from "../src/lib/routing/planner";
+import { RoutePlanner, type RouteProvider } from "../src/lib/routing/planner";
 import { DayItineraryPlanner } from "../src/lib/itinerary/planner";
 import { ItineraryOrchestrator } from "../src/lib/itinerary/orchestrator";
 import { ItineraryStore } from "../src/lib/itinerary/store";
+import { CityDataGateway } from "../src/lib/city/gateway";
 
 const direct = RoutePathSchema.parse({
   id: "direct",
@@ -31,19 +44,73 @@ const detour = RoutePathSchema.parse({
   durationSeconds: 1200,
 });
 
-function service() {
+class ConfirmationFixtureItineraryAgent extends FixtureItineraryAgent {
+  override async interpret(
+    itinerary: Parameters<FixtureItineraryAgent["interpret"]>[0],
+    userMessage: string,
+  ): Promise<ConversationAgentResult> {
+    if (userMessage.includes("接受")) {
+      const notification = itinerary.notifications.at(-1);
+      if (!notification) throw new Error("fixture 缺少可確認通知");
+      return ConversationAgentResultSchema.parse({
+        output: ConversationAgentOutputSchema.parse({
+          message: "已接受路線更新，繼續執行行程。",
+          planningStatus: "ready",
+          command: { action: "ack_notification", notificationId: notification.id },
+        }),
+        interactionId: `fixture-ack-${itinerary.id}`,
+      });
+    }
+    return super.interpret(itinerary, userMessage);
+  }
+
+  override async draftNotification(
+    input: NotificationAgentInput,
+  ): Promise<NotificationAgentOutput> {
+    return ItineraryNotificationSchema.parse({
+      ...(await super.draftNotification(input)),
+      requiresConfirmation: true,
+    });
+  }
+}
+
+class EmptyCityGateway extends CityDataGateway {
+  override async refresh(): Promise<CityFeedSnapshot> {
+    return CityFeedSnapshotSchema.parse({
+      city: "Taipei",
+      checkedAt: "2026-08-17T16:00:00+08:00",
+      feeds: [],
+      observations: [],
+      signals: [],
+    });
+  }
+}
+
+class CountingRouteProvider implements RouteProvider {
+  calls = 0;
+
+  constructor(private readonly delegate: FixtureGoogleRoutesProvider) {}
+
+  calculate(input: RouteCalculationInput): Promise<RouteProviderResult> {
+    this.calls += 1;
+    return this.delegate.calculate(input);
+  }
+}
+
+function service(
+  agent: FixtureItineraryAgent = new FixtureItineraryAgent(),
+  provider: RouteProvider = new FixtureGoogleRoutesProvider([
+    { profile: "car", normal: [direct], rerouted: [detour] },
+    { profile: "bike", normal: [direct], rerouted: [detour] },
+    { profile: "foot", normal: [direct], rerouted: [detour] },
+  ]),
+  cityGateway?: CityDataGateway,
+) {
   return new ItineraryOrchestrator(
     new ItineraryStore(":memory:"),
-    new FixtureItineraryAgent(),
-    new DayItineraryPlanner(
-      new RoutePlanner(
-        new FixtureGoogleRoutesProvider([
-          { profile: "car", normal: [direct], rerouted: [detour] },
-          { profile: "bike", normal: [direct], rerouted: [detour] },
-          { profile: "foot", normal: [direct], rerouted: [detour] },
-        ]),
-      ),
-    ),
+    agent,
+    new DayItineraryPlanner(new RoutePlanner(provider)),
+    cityGateway,
   );
 }
 
@@ -113,6 +180,62 @@ describe("day itinerary orchestration", () => {
     expect(refreshed.notification?.changes[0]?.before.routeId).toBe("direct");
     expect(refreshed.notification?.changes[0]?.after.routeId).toBe("detour");
     expect(refreshed.notification?.changes[0]?.delta.durationSeconds).toBeGreaterThan(0);
+  });
+
+  it("resumes active navigation after acknowledging a safe route update", async () => {
+    const orchestrator = service(new ConfirmationFixtureItineraryAgent());
+    const itinerary = orchestrator.createSession("user-1", "2026-08-17");
+    await orchestrator.sendMessage(itinerary.id, "我今天想去聽演唱會");
+    await orchestrator.sendMessage(itinerary.id, "開始行程");
+
+    const refreshed = await orchestrator.refresh(itinerary.id, [
+      {
+        id: "flood-1",
+        kind: "flood_zone",
+        label: "淹水區",
+        polygon: [
+          { latitude: 25.04, longitude: 121.52 },
+          { latitude: 25.04, longitude: 121.54 },
+          { latitude: 25.05, longitude: 121.54 },
+          { latitude: 25.05, longitude: 121.52 },
+          { latitude: 25.04, longitude: 121.52 },
+        ],
+        severity: "blocked",
+        observedAt: "2026-08-17T16:00:00+08:00",
+        evidenceId: "e-flood",
+        summary: "道路積水禁止通行",
+      },
+    ]);
+    expect(refreshed.itinerary.status).toBe("update_pending");
+    expect(refreshed.itinerary.legs.every((leg) => leg.status !== "blocked")).toBe(true);
+
+    const acknowledged = await orchestrator.sendMessage(itinerary.id, "我接受這次路線更新");
+    expect(acknowledged.itinerary.status).toBe("active");
+    expect(acknowledged.itinerary.notifications[0]?.readAt).toBeDefined();
+  });
+
+  it("does not rebuild routes when live feeds have no actionable signals", async () => {
+    const provider = new CountingRouteProvider(
+      new FixtureGoogleRoutesProvider([
+        { profile: "car", normal: [direct], rerouted: [detour] },
+        { profile: "bike", normal: [direct], rerouted: [detour] },
+        { profile: "foot", normal: [direct], rerouted: [detour] },
+      ]),
+    );
+    const orchestrator = service(new FixtureItineraryAgent(), provider, new EmptyCityGateway());
+    const itinerary = orchestrator.createSession("user-1", "2026-08-17");
+    await orchestrator.sendMessage(itinerary.id, "我今天想去聽演唱會");
+    await orchestrator.sendMessage(itinerary.id, "開始行程");
+    const before = orchestrator.getSession(itinerary.id);
+    if (!before) throw new Error("fixture session 不存在");
+    const callsBefore = provider.calls;
+
+    const live = await orchestrator.refreshLive(itinerary.id, { city: "Taipei" });
+
+    expect(live.lastRun.status).toBe("succeeded");
+    expect(live.itinerary.revision).toBe(before.revision);
+    expect(provider.calls).toBe(callsBefore);
+    expect(live.cityFeeds.signals).toHaveLength(0);
   });
 
   it("completes the whole day and marks stops and return leg complete", async () => {

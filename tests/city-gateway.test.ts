@@ -202,4 +202,19 @@ describe("official city data gateways", () => {
     expect(result.feeds.every((feed) => feed.status === "unavailable")).toBe(true);
     expect(result.signals).toHaveLength(0);
   });
+
+  it("does not substitute another source when NCDR or metro crowding is unavailable", async () => {
+    const [ncdr, metro] = await Promise.all([
+      new NcdrClient({ apiKey: "" }).fetchCity("Taipei"),
+      new TaipeiMetroClient({ apiKey: "", url: "" }).fetchCity("Taipei"),
+    ]);
+
+    expect(ncdr).toMatchObject({ source: "ncdr", status: "unavailable", observations: [], signals: [] });
+    expect(metro).toMatchObject({
+      source: "taipei_metro",
+      status: "unavailable",
+      observations: [],
+      signals: [],
+    });
+  });
 });
