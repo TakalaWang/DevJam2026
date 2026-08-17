@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
 import {
   ApiErrorResponseSchema,
   DayItineraryListResponseSchema,
@@ -74,6 +75,12 @@ function transitModeLabel(mode: string): string {
         : mode === "light_rail"
           ? "輕軌"
           : "大眾運輸";
+}
+
+function routeModeLabel(route: DayItinerarySnapshot["legs"][number]["route"]): string {
+  if (route?.profile !== "transit") return modeLabel(route?.profile);
+  const modes = [...new Set(route.transitSteps.map((step) => transitModeLabel(step.mode)))];
+  return modes.length ? modes.join("／") : modeLabel(route.profile);
 }
 
 function stopMapUrl(stop: { coordinate: { latitude: number; longitude: number } }): string {
@@ -471,7 +478,7 @@ function LegLine({
     <>
       <div className={`leg-line ${leg.status} ${active ? "current" : ""}`}>
         <span>↳</span>
-        <strong>{leg.status === "blocked" ? "路段受阻" : modeLabel(leg.route?.profile)}</strong>
+        <strong>{leg.status === "blocked" ? "路段受阻" : routeModeLabel(leg.route)}</strong>
         <span>
           {leg.status === "blocked" ? leg.reason : formatDuration(leg.route?.durationSeconds)}
         </span>
@@ -558,7 +565,7 @@ function NavigationOverlay({ snapshot }: { snapshot: DayItinerarySnapshot }) {
       <span>
         <strong>前往 {navigation.destination?.title ?? "下一站"}</strong>
         <small>
-          {modeLabel(navigation.leg.route?.profile)} · 約{" "}
+          {routeModeLabel(navigation.leg.route)} · 約{" "}
           {formatDuration(navigation.leg.route?.durationSeconds)}
         </small>
       </span>
@@ -1047,7 +1054,13 @@ export default function Page() {
                     <span className="message-label">
                       {message.role === "assistant" ? routaAssistantLabel : "YOU"}
                     </span>
-                    <p>{message.content}</p>
+                    {message.role === "assistant" ? (
+                      <div className="message-markdown">
+                        <ReactMarkdown>{message.content}</ReactMarkdown>
+                      </div>
+                    ) : (
+                      <p>{message.content}</p>
+                    )}
                   </div>
                 ))}
                 {loading && (

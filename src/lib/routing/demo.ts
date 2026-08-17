@@ -61,7 +61,12 @@ function detourCoordinates(input: RouteCalculationInput): Coordinate[] {
   return safe ? [origin, ...safe, destination] : [origin, destination];
 }
 
-function path(profile: RouteProfile, id: string, coordinates: Coordinate[]): RoutePath {
+function path(
+  profile: RouteProfile,
+  id: string,
+  coordinates: Coordinate[],
+  transitSteps: RoutePath["transitSteps"] = [],
+): RoutePath {
   const distance = distanceMeters(coordinates);
   return RoutePathSchema.parse({
     id,
@@ -71,6 +76,7 @@ function path(profile: RouteProfile, id: string, coordinates: Coordinate[]): Rou
     durationSeconds: Math.max(60, Math.ceil(distance / speedMetersPerSecond[profile])),
     stationIds: [],
     instructions: [],
+    transitSteps,
     provider: "google",
   });
 }
@@ -79,14 +85,32 @@ export class DemoRouteProvider implements RouteProvider {
   async calculate(rawInput: RouteCalculationInput): Promise<RouteProviderResult> {
     const input = RouteCalculationInputSchema.parse(rawInput);
     const profile = input.profile;
-    const direct = path(profile, `demo-${profile}-direct`, [
-      input.request.origin.coordinate,
-      input.request.destination.coordinate,
-    ]);
+    const transitSteps: RoutePath["transitSteps"] =
+      profile === "transit"
+        ? [
+            {
+              mode: "metro",
+              boardingStop: {
+                name: input.request.origin.label,
+                coordinate: input.request.origin.coordinate,
+              },
+              alightingStop: {
+                name: input.request.destination.label,
+                coordinate: input.request.destination.coordinate,
+              },
+            },
+          ]
+        : [];
+    const direct = path(
+      profile,
+      `demo-${profile}-direct`,
+      [input.request.origin.coordinate, input.request.destination.coordinate],
+      transitSteps,
+    );
     if (!input.blockedSignals.length) {
       return RouteProviderResultSchema.parse({ status: "ok", paths: [direct] });
     }
-    const detour = path(profile, `demo-${profile}-detour`, detourCoordinates(input));
+    const detour = path(profile, `demo-${profile}-detour`, detourCoordinates(input), transitSteps);
     return RouteProviderResultSchema.parse({ status: "ok", paths: [detour] });
   }
 }

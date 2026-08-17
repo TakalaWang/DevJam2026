@@ -298,6 +298,32 @@ describe("day itinerary orchestration", () => {
     }
   });
 
+  it("includes a visible mode in demo transit routes", async () => {
+    const result = await new DemoRouteProvider().calculate({
+      request: {
+        origin: { label: "台北車站", coordinate: { latitude: 25.0478, longitude: 121.517 } },
+        destination: {
+          label: "台北小巨蛋",
+          coordinate: { latitude: 25.0515, longitude: 121.5493 },
+        },
+        profiles: ["transit"],
+        maxExtraMinutes: 20,
+        bikeStations: [],
+      },
+      profile: "transit",
+      blockedSignals: [],
+    });
+
+    expect(result.status).toBe("ok");
+    if (result.status === "ok") {
+      expect(result.paths[0]?.transitSteps[0]).toMatchObject({
+        mode: "metro",
+        boardingStop: { name: "台北車站" },
+        alightingStop: { name: "台北小巨蛋" },
+      });
+    }
+  });
+
   it("moves a demo incident onto the current route when the trip is elsewhere", async () => {
     const route = RoutePathSchema.parse({
       ...direct,
