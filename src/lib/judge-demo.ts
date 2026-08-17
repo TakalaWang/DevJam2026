@@ -77,3 +77,20 @@ export function isJudgeDemoRunning(phase: JudgeDemoPhase): boolean {
     phase === "rerouting"
   );
 }
+
+export function judgeDemoNextPhase(phase: JudgeDemoPhase): JudgeDemoPhase | undefined {
+  switch (phase) {
+    case "confirming":
+      return "starting";
+    case "starting":
+      return "navigating";
+    case "navigating":
+      return "incident";
+    case "incident":
+      return "rerouting";
+    case "rerouting":
+      return "completed";
+    default:
+      return undefined;
+  }
+}

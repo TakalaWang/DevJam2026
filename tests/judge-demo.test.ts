@@ -3,6 +3,7 @@ import {
   JUDGE_DEMO_INCIDENT_MS,
   JUDGE_DEMO_TOTAL_MS,
   isJudgeDemoRunning,
+  judgeDemoNextPhase,
   judgeDemoStepAt,
 } from "../src/lib/judge-demo";
 
@@ -29,5 +30,14 @@ describe("judge demo timeline", () => {
     expect(isJudgeDemoRunning("rerouting")).toBe(true);
     expect(isJudgeDemoRunning("completed")).toBe(false);
     expect(isJudgeDemoRunning("stopped")).toBe(false);
+  });
+
+  it("advances to the next phase immediately after each completed action", () => {
+    expect(judgeDemoNextPhase("confirming")).toBe("starting");
+    expect(judgeDemoNextPhase("starting")).toBe("navigating");
+    expect(judgeDemoNextPhase("navigating")).toBe("incident");
+    expect(judgeDemoNextPhase("incident")).toBe("rerouting");
+    expect(judgeDemoNextPhase("rerouting")).toBe("completed");
+    expect(judgeDemoNextPhase("completed")).toBeUndefined();
   });
 });

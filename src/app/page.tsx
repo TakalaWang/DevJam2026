@@ -15,11 +15,10 @@ import {
 import { routaAssistantLabel, routaBrand, routaSubtitle } from "../lib/brand";
 import { composerKeyAction } from "../lib/composer";
 import {
-  JUDGE_DEMO_INCIDENT_MS,
   JUDGE_DEMO_TOTAL_MS,
   JUDGE_DEMO_TIMELINE,
   isJudgeDemoRunning,
-  judgeDemoStepAt,
+  judgeDemoNextPhase,
   type JudgeDemoPhase,
 } from "../lib/judge-demo";
 import {
@@ -81,6 +80,15 @@ function judgeDemoPhaseLabel(phase: JudgeDemoPhase): string {
   if (phase === "stopped") return "已停止";
   if (phase === "error") return "需要重試";
   return JUDGE_DEMO_TIMELINE.find((step) => step.phase === phase)?.label ?? "進行中";
+}
+
+function judgeDemoPhaseDescription(phase: JudgeDemoPhase): string {
+  if (phase === "stopped") return "流程已停止，行程仍保留在目前狀態。";
+  if (phase === "error") return "流程遇到問題，請查看下方錯誤並重試。";
+  return (
+    JUDGE_DEMO_TIMELINE.find((step) => step.phase === phase)?.description ??
+    "Routa 正在準備評審流程。"
+  );
 }
 
 function formatDemoElapsed(elapsedMs: number): string {
@@ -618,14 +626,6 @@ export default function Page() {
     }
   }
 
-  function scheduleJudgeDemo(runId: number, delayMs: number, action: () => void | Promise<void>) {
-    const timer = setTimeout(() => {
-      if (judgeDemoRunRef.current !== runId) return;
-      void action();
-    }, delayMs);
-    judgeDemoTimersRef.current.push(timer);
-  }
-
   function stopJudgeDemo() {
     if (!isJudgeDemoRunning(judgeDemoPhase)) return;
     judgeDemoRunRef.current += 1;
@@ -635,7 +635,7 @@ export default function Page() {
     appendMessage("assistant", "評審 Demo 已停止；你仍然可以用右側控制列手動更新或完成行程。");
   }
 
-  function runJudgeDemo() {
+  async function runJudgeDemo() {
     if (!selectedId || !readyToStart || loading || isJudgeDemoRunning(judgeDemoPhase)) return;
     const planId = selectedId;
     const runId = judgeDemoRunRef.current + 1;
@@ -647,96 +647,85 @@ export default function Page() {
     setError("");
     appendMessage("user", "這個安排可以，請幫我開始導航；如果遇到突發狀況就直接幫我改路線。");
 
-    scheduleJudgeDemo(runId, 4_000, () => {
+    const timeout = setTimeout(() => {
+      if (judgeDemoRunRef.current !== runId) return;
+      judgeDemoRunRef.current += 1;
+      clearJudgeDemoTimers();
+      setJudgeDemoPhase("error");
+      setError("Demo 超過兩分鐘仍未完成，請檢查 API 連線後重試。");
+      setLoading(false);
+    }, JUDGE_DEMO_TOTAL_MS);
+    judgeDemoTimersRef.current.push(timeout);
+
+    try {
       appendMessage(
         "assistant",
         "收到。我會先確認各段交通，再啟動導航；途中如果偵測到災害或道路中斷，會即時通知並重新安排。",
       );
-    });
-
-    scheduleJudgeDemo(runId, 8_000, async () => {
-      setJudgeDemoPhase("starting");
+      setJudgeDemoPhase(judgeDemoNextPhase("confirming") ?? "starting");
       setLoading(true);
-      try {
-        const response = await postPlan(`/api/day-plans/${planId}/start`);
-        if (judgeDemoRunRef.current !== runId) return;
-        applySnapshot(response.itinerary);
-        appendMessage(
-          "assistant",
-          response.assistantMessage ?? "導航已啟動，Routa 開始監測你的行程。",
-        );
-        setJudgeDemoPhase("navigating");
-      } catch (requestError) {
-        if (judgeDemoRunRef.current !== runId) return;
-        const message = requestError instanceof Error ? requestError.message : "無法開始行程";
-        setError(message);
-        setJudgeDemoPhase("error");
-        appendMessage("assistant", `Demo 無法啟動：${message}`);
-      } finally {
-        setLoading(false);
-      }
-    });
 
-    scheduleJudgeDemo(runId, JUDGE_DEMO_INCIDENT_MS, async () => {
-      setJudgeDemoPhase("incident");
+      const startResponse = await postPlan(`/api/day-plans/${planId}/start`);
+      if (judgeDemoRunRef.current !== runId) return;
+      applySnapshot(startResponse.itinerary);
+      appendMessage(
+        "assistant",
+        startResponse.assistantMessage ?? "導航已啟動，Routa 開始監測你的行程。",
+      );
+      setJudgeDemoPhase(judgeDemoNextPhase("starting") ?? "navigating");
+
       appendMessage("assistant", "⚠️ 偵測到前方示範道路封閉。我先暫停原路線，重新評估下一段交通。");
-      setLoading(true);
-      try {
-        const response = await postPlan(`/api/day-plans/${planId}/demo`, {
-          scenario: "road_closure",
+      setJudgeDemoPhase(judgeDemoNextPhase("navigating") ?? "incident");
+      const refreshResponse = await postPlan(`/api/day-plans/${planId}/demo`, {
+        scenario: "road_closure",
+      });
+      if (judgeDemoRunRef.current !== runId) return;
+      applySnapshot(refreshResponse.itinerary);
+      if (refreshResponse.notification) setLatestNotification(refreshResponse.notification);
+      let refreshedStatus = refreshResponse.itinerary.status;
+      if (refreshResponse.itinerary.status === "update_pending") {
+        appendMessage("user", "我確認這次改道安排，請繼續導航。");
+        const confirmation = await postPlan(`/api/day-plans/${planId}/messages`, {
+          message: "我確認這次改道安排，請繼續導航。",
         });
         if (judgeDemoRunRef.current !== runId) return;
-        applySnapshot(response.itinerary);
-        if (response.notification) setLatestNotification(response.notification);
-        if (response.itinerary.status === "update_pending") {
-          appendMessage("user", "我確認這次改道安排，請繼續導航。");
-          const confirmation = await postPlan(`/api/day-plans/${planId}/messages`, {
-            message: "我確認這次改道安排，請繼續導航。",
-          });
-          if (judgeDemoRunRef.current !== runId) return;
-          applySnapshot(confirmation.itinerary);
-          if (confirmation.assistantMessage) {
-            appendMessage("assistant", confirmation.assistantMessage);
-          }
-        }
-        setJudgeDemoPhase("rerouting");
-        appendMessage(
-          "assistant",
-          "已完成重新規劃，受影響路段已標記並替換成可行路線；右側地圖與時間軸已同步更新。",
-        );
-      } catch (requestError) {
-        if (judgeDemoRunRef.current !== runId) return;
-        const message = requestError instanceof Error ? requestError.message : "Demo 更新失敗";
-        setError(message);
-        setJudgeDemoPhase("error");
-        appendMessage("assistant", `災害更新失敗：${message}`);
-      } finally {
-        setLoading(false);
+        applySnapshot(confirmation.itinerary);
+        refreshedStatus = confirmation.itinerary.status;
+        if (confirmation.assistantMessage)
+          appendMessage("assistant", confirmation.assistantMessage);
       }
-    });
+      if (refreshedStatus === "update_pending") {
+        throw new Error("改道路線仍等待確認，Demo 無法繼續完成。");
+      }
 
-    scheduleJudgeDemo(runId, JUDGE_DEMO_TOTAL_MS, async () => {
-      setLoading(true);
-      try {
-        const response = await postPlan(`/api/day-plans/${planId}/complete`);
-        if (judgeDemoRunRef.current !== runId) return;
-        applySnapshot(response.itinerary);
-        if (response.assistantMessage) appendMessage("assistant", response.assistantMessage);
-        setJudgeDemoElapsedMs(JUDGE_DEMO_TOTAL_MS);
-        setJudgeDemoPhase("completed");
-        judgeDemoStartedAtRef.current = undefined;
+      setJudgeDemoPhase(judgeDemoNextPhase("incident") ?? "rerouting");
+      appendMessage(
+        "assistant",
+        "已完成重新規劃，受影響路段已標記並替換成可行路線；右側地圖與時間軸已同步更新。",
+      );
+
+      const completeResponse = await postPlan(`/api/day-plans/${planId}/complete`);
+      if (judgeDemoRunRef.current !== runId) return;
+      applySnapshot(completeResponse.itinerary);
+      if (completeResponse.assistantMessage)
+        appendMessage("assistant", completeResponse.assistantMessage);
+      setJudgeDemoElapsedMs(Date.now() - (judgeDemoStartedAtRef.current ?? Date.now()));
+      setJudgeDemoPhase(judgeDemoNextPhase("rerouting") ?? "completed");
+      judgeDemoStartedAtRef.current = undefined;
+      clearJudgeDemoTimers();
+      appendMessage("assistant", "評審 Demo 完成：導航、災害通知與即時改道流程都已跑完。");
+    } catch (requestError) {
+      if (judgeDemoRunRef.current !== runId) return;
+      const message = requestError instanceof Error ? requestError.message : "Demo 流程失敗";
+      setError(message);
+      setJudgeDemoPhase("error");
+      appendMessage("assistant", `Demo 無法完成：${message}`);
+    } finally {
+      if (judgeDemoRunRef.current === runId) {
         clearJudgeDemoTimers();
-        appendMessage("assistant", "兩分鐘評審 Demo 完成：導航、災害通知與即時改道流程都已跑完。");
-      } catch (requestError) {
-        if (judgeDemoRunRef.current !== runId) return;
-        const message = requestError instanceof Error ? requestError.message : "無法完成行程";
-        setError(message);
-        setJudgeDemoPhase("error");
-        appendMessage("assistant", `Demo 無法完成：${message}`);
-      } finally {
-        setLoading(false);
       }
-    });
+      setLoading(false);
+    }
   }
 
   const readyToStart = itinerary?.status === "ready";
@@ -919,7 +908,7 @@ export default function Page() {
                 <div className={`judge-demo-panel ${judgeDemoPhase}`}>
                   <div className="judge-demo-heading">
                     <div>
-                      <p className="kicker">JUDGE DEMO · 02:00</p>
+                      <p className="kicker">JUDGE DEMO · 最長 02:00</p>
                       <strong>{judgeDemoPhaseLabel(judgeDemoPhase)}</strong>
                     </div>
                     <span className="judge-demo-clock">
@@ -933,13 +922,7 @@ export default function Page() {
                       }}
                     />
                   </div>
-                  <p className="judge-demo-copy">
-                    {judgeDemoPhase === "stopped"
-                      ? "流程已停止，行程仍保留在目前狀態。"
-                      : judgeDemoPhase === "error"
-                        ? "流程遇到問題，請查看下方錯誤並重試。"
-                        : judgeDemoStepAt(judgeDemoElapsedMs).description}
-                  </p>
+                  <p className="judge-demo-copy">{judgeDemoPhaseDescription(judgeDemoPhase)}</p>
                   {isJudgeDemoRunning(judgeDemoPhase) && (
                     <button className="judge-demo-stop" onClick={stopJudgeDemo} type="button">
                       停止 Demo
