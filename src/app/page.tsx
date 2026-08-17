@@ -977,13 +977,13 @@ export default function Page() {
       <div className={`workbench-grid ${itinerary ? "" : "without-itinerary"}`}>
         <aside className="history-sidebar" aria-label="行程紀錄">
           <div className="sidebar-heading">
-            <div>
-              <p className="kicker">MY DAY PLANS</p>
+            <p className="kicker">MY DAY PLANS</p>
+            <div className="sidebar-title-row">
               <h1>行程紀錄</h1>
+              <button className="icon-button" onClick={newPlan} type="button">
+                ＋ 新增
+              </button>
             </div>
-            <button className="icon-button" onClick={newPlan} type="button">
-              ＋ 新增
-            </button>
           </div>
           <div className="history-list">
             {history.length ? (

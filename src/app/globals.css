@@ -168,7 +168,13 @@ textarea:focus-visible {
   gap: 12px;
 }
 .sidebar-heading {
+  display: block;
+}
+.sidebar-title-row {
+  display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 .sidebar-heading h1,
 .conversation-heading h2,
