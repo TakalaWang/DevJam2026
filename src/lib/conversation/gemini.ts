@@ -26,10 +26,10 @@ import {
 const modelName = process.env.GEMINI_MODEL ?? "gemini-3.6-flash";
 
 const conversationInstruction =
-  "你是 Routa 智旅的一天行程助理。只能輸出符合 response schema 的 JSON，command 必須使用 action 欄位。依序工作：collecting 蒐集目的地、固定活動、出發與結束時間、出發位置、交通偏好、回程安排與限制；awaiting_confirmation 將已蒐集資料整理成簡短摘要，請使用者明確確認；scheduling 只有在使用者明確確認後才建立從出門到回家的完整行程；refining 只處理使用者對既有行程的微調。資料不足或沒有明確確認時，使用 ask_clarification，不得回傳 ready 或 propose_day。不得把 assumed 或 proxy 當成使用者已確認的資料。planningStatus 只有在所有必要 facts 都是 confirmed 且使用者已明確確認時才是 ready。當 planningStatus 是 ready 時，message 必須說明已確認的行程重點、已安排從出門到回家的完整交通，並告知使用者可以按右側「開始行程」。不要自行計算路線，不要捏造即時城市狀態。";
+  "你是 Routa 智旅的一天行程助理。只能輸出符合 response schema 的 JSON，command 必須使用 action 欄位。依序工作：collecting 蒐集目的地、固定活動、出發與結束時間、出發位置、交通偏好、回程安排與限制；awaiting_confirmation 將已蒐集資料整理成簡短摘要，請使用者明確確認；scheduling 只有在使用者明確確認後才建立從出門到回家的完整行程；refining 只處理使用者對既有行程的微調。若 itinerary 有 status=blocked 的交通段，且使用者提供替代景點，使用 replace_stop，stopId 必須填入受阻交通段的目的地景點 id，stop 填入新的景點，不要只用 add_stop 留下受阻景點。資料不足或沒有明確確認時，使用 ask_clarification，不得回傳 ready 或 propose_day。不得把 assumed 或 proxy 當成使用者已確認的資料。planningStatus 只有在所有必要 facts 都是 confirmed 且使用者已明確確認時才是 ready。當 planningStatus 是 ready 時，message 必須說明已確認的行程重點、已安排從出門到回家的完整交通，並告知使用者可以按右側「開始行程」。不要自行計算路線，不要捏造即時城市狀態。";
 
 const notificationInstruction =
-  "你是 Routa 智旅的行程更新通知 Agent。只能輸出符合 response schema 的 JSON。用繁體中文清楚說明哪一段行程受城市事件影響，以及系統已做的路線更新。changes 欄位是 deterministic planner 提供的修改前後資料，必須原樣保留，不可自行捏造或修改。message 必須說明原因、原路線、新路線與主要取捨。不要修改行程資料。";
+  "你是 Routa 智旅的行程更新通知 Agent。只能輸出符合 response schema 的 JSON。用繁體中文清楚說明哪一段行程受城市事件影響，以及系統已做的路線更新。changes 欄位是 deterministic planner 提供的修改前後資料，必須原樣保留，不可自行捏造或修改。message 必須說明原因、原路線、新路線與主要取捨。當 changes 的 after.status 是 blocked 時，必須明確告知目前沒有可驗證的安全路線，並詢問使用者是否想改去其他景點；不可把受阻路段說成已成功改道，也不要要求使用者確認不可行的路線。不要修改行程資料。";
 
 const GeminiInteractionResponseSchema = z.object({
   id: z.string().min(1),
@@ -60,6 +60,12 @@ function normalizeCommand(command: ConversationAgentModelOutput["command"]): Iti
         action: command.action,
         stop: command.stop,
         ...(command.afterStopId === null ? {} : { afterStopId: command.afterStopId }),
+      });
+    case "replace_stop":
+      return ItineraryCommandSchema.parse({
+        action: command.action,
+        stopId: command.stopId,
+        stop: command.stop,
       });
     case "remove_stop":
       return ItineraryCommandSchema.parse({ action: command.action, stopId: command.stopId });

@@ -191,12 +191,12 @@ export class DayItineraryPlanner {
     return legIds.flatMap((legId) => {
       const previous = before.legs.find((leg) => leg.id === legId);
       const next = after.legs.find((leg) => leg.id === legId);
-      if (!previous || !next) return [];
-      const beforeDuration = previous.route?.durationSeconds ?? 0;
+      if (!next) return [];
+      const beforeDuration = previous?.route?.durationSeconds ?? 0;
       const afterDuration = next.route?.durationSeconds ?? 0;
       const durationDelta = afterDuration - beforeDuration;
       const tradeoffs = [
-        previous.route?.provider !== next.route?.provider
+        previous && previous.route?.provider !== next.route?.provider
           ? `路線服務由 ${previous.route?.provider ?? "原方案"} 改為 ${next.route?.provider ?? "不可用"}`
           : undefined,
         durationDelta > 0 ? `預估增加 ${Math.ceil(durationDelta / 60)} 分鐘` : undefined,
@@ -206,16 +206,16 @@ export class DayItineraryPlanner {
       return [
         ItineraryRouteChangeSchema.parse({
           legId,
-          fromStopId: previous.fromStopId,
-          toStopId: previous.toStopId,
-          fromLabel: label(before, previous.fromStopId),
-          toLabel: label(before, previous.toStopId),
-          before: state(previous),
+          fromStopId: next.fromStopId,
+          toStopId: next.toStopId,
+          fromLabel: label(previous ? before : after, next.fromStopId),
+          toLabel: label(previous ? before : after, next.toStopId),
+          before: previous ? state(previous) : { ...state(next), status: "planned" },
           after: state(next),
           delta: {
             durationSeconds: durationDelta,
             distanceMeters:
-              (next.route?.distanceMeters ?? 0) - (previous.route?.distanceMeters ?? 0),
+              (next.route?.distanceMeters ?? 0) - (previous?.route?.distanceMeters ?? 0),
           },
           reason: signalReason || (next.status === "blocked" ? next.reason : "路線狀態變更"),
           tradeoffs,

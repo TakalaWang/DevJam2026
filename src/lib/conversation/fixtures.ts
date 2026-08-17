@@ -66,6 +66,38 @@ export class FixtureItineraryAgent implements ItineraryAgent {
         output,
         interactionId: `fixture-${itinerary.id}`,
       });
+    const blockedLeg = itinerary.legs.find(
+      (leg) => leg.status === "blocked" && leg.toStopId !== "home",
+    );
+    if (blockedLeg && userMessage.includes("改去")) {
+      const blockedStop = itinerary.stops.find((stop) => stop.id === blockedLeg.toStopId);
+      if (blockedStop) {
+        const title = userMessage
+          .replace(/^.*?改去/, "")
+          .replace(/[。！!].*$/, "")
+          .trim();
+        return result(
+          ConversationAgentOutputSchema.parse({
+            message: `收到，我會把${blockedStop.title}替換成${title || "新的景點"}，重新檢查後續路線。`,
+            planningPhase: "refining",
+            planningStatus: "ready",
+            facts: itinerary.planningFacts,
+            command: {
+              action: "replace_stop",
+              stopId: blockedStop.id,
+              stop: {
+                title: title || "新的景點",
+                location: { ...blockedStop.location, label: title || "新的景點" },
+                durationMinutes: blockedStop.durationMinutes,
+                constraint: blockedStop.constraint,
+                ...(blockedStop.timeWindow ? { timeWindow: blockedStop.timeWindow } : {}),
+                evidenceIds: [],
+              },
+            },
+          }),
+        );
+      }
+    }
     if (userMessage.includes("開始")) {
       return result(
         ConversationAgentOutputSchema.parse({
@@ -238,6 +270,7 @@ export class FixtureItineraryAgent implements ItineraryAgent {
   }
 
   async draftNotification(input: NotificationAgentInput): Promise<NotificationAgentOutput> {
+    const blocked = input.changes.some((change) => change.after.status === "blocked");
     return ItineraryNotificationSchema.parse({
       id: `fixture-notice-${Date.now()}`,
       kind: "service_disruption",
@@ -250,7 +283,8 @@ export class FixtureItineraryAgent implements ItineraryAgent {
             (change) =>
               `${change.fromLabel} → ${change.toLabel}：${change.reason}；${change.tradeoffs.join("、")}。`,
           )
-          .join(" "),
+          .join(" ") +
+        (blocked ? " 請問你是否想改去其他景點？" : ""),
       affectedLegIds: input.affectedLegIds,
       affectedStopIds: input.affectedStopIds,
       changes: input.changes,
