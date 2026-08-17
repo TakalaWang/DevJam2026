@@ -157,7 +157,9 @@ export default function Page() {
               <span className={loading ? "route-state checking" : "route-state"}>
                 <i /> {loading ? "ROUTE CHECKING" : "ROUTE READY"}
               </span>
-              <span>{routeSummary.stops} stops · {routeSummary.fixedStops} fixed</span>
+              <span>
+                {routeSummary.stops} stops · {routeSummary.fixedStops} fixed
+              </span>
             </div>
           </div>
 
@@ -165,9 +167,15 @@ export default function Page() {
             <div className="street-grid" aria-hidden="true" />
             <div className="map-water" aria-hidden="true" />
             <div className="route-line" aria-hidden="true" />
-            <div className="map-pin pin-one" aria-label="台北 101"><span>1</span></div>
-            <div className="map-pin pin-two" aria-label="大稻埕"><span>2</span></div>
-            <div className="map-pin pin-three" aria-label="內湖科技園區"><span>3</span></div>
+            <div className="map-pin pin-one" aria-label="台北 101">
+              <span>1</span>
+            </div>
+            <div className="map-pin pin-two" aria-label="大稻埕">
+              <span>2</span>
+            </div>
+            <div className="map-pin pin-three" aria-label="內湖科技園區">
+              <span>3</span>
+            </div>
             <div className="map-label label-one">台北 101</div>
             <div className="map-label label-two">大稻埕</div>
             <div className="map-label label-three">內湖</div>

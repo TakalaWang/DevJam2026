@@ -331,7 +331,9 @@ button:disabled {
   overflow: hidden;
   border: 1px solid #30434a;
   background: #c8ded5;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05), 0 20px 60px rgba(0, 0, 0, 0.18);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 20px 60px rgba(0, 0, 0, 0.18);
 }
 
 .street-grid {
@@ -367,7 +369,9 @@ button:disabled {
   border-radius: 99px;
   background: linear-gradient(90deg, #23866e 0 40%, #f0a45a 41% 59%, #23866e 60%);
   transform: rotate(-14deg);
-  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.58), 0 7px 18px rgba(32, 96, 74, 0.28);
+  box-shadow:
+    0 0 0 4px rgba(255, 255, 255, 0.58),
+    0 7px 18px rgba(32, 96, 74, 0.28);
 }
 
 .map-pin {
