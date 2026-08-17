@@ -1084,7 +1084,6 @@ export default function Page() {
                         onClick={() => void sendMessage("確認，就這樣安排")}
                         type="button"
                       >
-                        <span aria-hidden="true" className="confirmation-action-mark" />
                         <span>確認行程</span>
                         <span aria-hidden="true">→</span>
                       </button>
@@ -1127,8 +1126,8 @@ export default function Page() {
                   rows={3}
                   value={draft}
                 />
-                <button disabled={loading || !draft.trim()} type="submit">
-                  送出 <span>↗</span>
+                <button aria-label="送出訊息" disabled={loading || !draft.trim()} type="submit">
+                  送出 <span aria-hidden="true">↗</span>
                 </button>
               </form>
               <div className="conversation-note">

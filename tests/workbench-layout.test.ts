@@ -34,8 +34,8 @@ describe("workbench independent scrolling layout", () => {
 
   it("confirms a pending plan from the conversation", () => {
     expect(pageSource).toContain('className="confirmation-action"');
-    expect(pageSource).toContain('className="confirmation-action-mark"');
     expect(pageSource).toContain('sendMessage("確認，就這樣安排")');
+    expect(pageSource).not.toContain('className="confirmation-action-mark"');
     expect(pageSource).not.toContain('appendMessage("user", "這個安排可以，請幫我開始導航');
   });
 
