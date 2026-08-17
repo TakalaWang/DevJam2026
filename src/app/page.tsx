@@ -71,7 +71,6 @@ function statusLabel(status: DayItinerarySnapshot["status"]): string {
           : "已完成";
 }
 
-<<<<<<< HEAD
 function judgeDemoPhaseLabel(phase: JudgeDemoPhase): string {
   if (phase === "idle") return "尚未開始";
   if (phase === "stopped") return "已停止";
@@ -553,6 +552,14 @@ export default function Page() {
     judgeDemoTimersRef.current = [];
   }
 
+  function resetJudgeDemo() {
+    judgeDemoRunRef.current += 1;
+    clearJudgeDemoTimers();
+    judgeDemoStartedAtRef.current = undefined;
+    setJudgeDemoElapsedMs(0);
+    setJudgeDemoPhase("idle");
+  }
+
   useEffect(() => {
     if (!isJudgeDemoRunning(judgeDemoPhase) || judgeDemoStartedAtRef.current === undefined) {
       return;
@@ -683,14 +690,6 @@ export default function Page() {
     event.preventDefault();
     if (isComposingRef.current) return;
     void sendMessage(draft.trim());
-  }
-
-  function resetJudgeDemo() {
-    judgeDemoRunRef.current += 1;
-    clearJudgeDemoTimers();
-    judgeDemoStartedAtRef.current = undefined;
-    setJudgeDemoElapsedMs(0);
-    setJudgeDemoPhase("idle");
   }
 
   async function startPlan() {
