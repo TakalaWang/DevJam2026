@@ -4,6 +4,7 @@
 .streamlit/secrets.toml
 .venv/
 node_modules/
+.worktrees/
 dist/
 __pycache__/
 .pytest_cache/
