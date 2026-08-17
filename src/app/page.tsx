@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useRef, useState } from "react";
+import { itineraryStops, routeSummary } from "../lib/itinerary";
 import { readSseStream } from "../lib/sse";
 
 type ChatMessage = { id: number; role: "user" | "assistant"; content: string };
@@ -146,18 +147,55 @@ export default function Page() {
           {error && <p className="error-text">{error}</p>}
         </aside>
 
-        <section className="plan-panel">
-          <div className="plan-header">
+        <section className="plan-panel" aria-label="旅程地圖與行程">
+          <div className="map-toolbar">
             <div>
-              <p className="eyebrow">02 / LIVING ITINERARY</p>
-              <h2>你的行程會出現在這裡</h2>
+              <p className="eyebrow">02 / LIVING MAP</p>
+              <h2>{routeSummary.title}</h2>
             </div>
-            <span className="route-count">待命中</span>
+            <div className="map-toolbar-meta">
+              <span className={loading ? "route-state checking" : "route-state"}>
+                <i /> {loading ? "ROUTE CHECKING" : "ROUTE READY"}
+              </span>
+              <span>{routeSummary.stops} stops · {routeSummary.fixedStops} fixed</span>
+            </div>
           </div>
-          <div className="empty-plan">
-            <div className="empty-orbit">⌁</div>
-            <p>先聊聊你的旅程。</p>
-            <span>當對話整理完成後，這裡會長出完整的時間軸與路線。</span>
+
+          <div className="map-shell" aria-label="台北行程路線示意圖" role="img">
+            <div className="street-grid" aria-hidden="true" />
+            <div className="map-water" aria-hidden="true" />
+            <div className="route-line" aria-hidden="true" />
+            <div className="map-pin pin-one" aria-label="台北 101"><span>1</span></div>
+            <div className="map-pin pin-two" aria-label="大稻埕"><span>2</span></div>
+            <div className="map-pin pin-three" aria-label="內湖科技園區"><span>3</span></div>
+            <div className="map-label label-one">台北 101</div>
+            <div className="map-label label-two">大稻埕</div>
+            <div className="map-label label-three">內湖</div>
+            <div className="map-note">
+              <span className="map-note-dot" />
+              {loading ? "正在查詢路況" : routeSummary.status}
+            </div>
+
+            <div className="itinerary-dock">
+              <div className="dock-header">
+                <span>今日行程</span>
+                <span className="dock-source">{routeSummary.source}</span>
+              </div>
+              <div className="stop-list">
+                {itineraryStops.map((stop) => (
+                  <div className="stop-item" key={stop.time}>
+                    <time>{stop.time}</time>
+                    <div>
+                      <strong>{stop.title}</strong>
+                      <small>{stop.detail}</small>
+                    </div>
+                    <span className={`stop-kind ${stop.kind}`}>
+                      {stop.kind === "fixed" ? "FIXED" : "FLEXIBLE"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </section>
       </section>
