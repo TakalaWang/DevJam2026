@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 import {
   RouteFindingSchema,
   RoutePlanSchema,
-  RouteProviderResultSchema,
   RouteRequestSchema,
   RouteSignalSchema,
   type RouteEvaluation,
@@ -21,7 +20,11 @@ export interface RouteProvider {
 }
 
 function hardAreaFinding(path: RoutePath, signal: RouteSignal): RouteFinding | undefined {
-  if (signal.kind === "flood_zone" && signal.severity === "blocked" && routeIntersectsPolygon(path.coordinates, signal.polygon)) {
+  if (
+    signal.kind === "flood_zone" &&
+    signal.severity === "blocked" &&
+    routeIntersectsPolygon(path.coordinates, signal.polygon)
+  ) {
     return RouteFindingSchema.parse({
       code: "flooded_segment",
       severity: "error",
@@ -40,7 +43,8 @@ function hardAreaFinding(path: RoutePath, signal: RouteSignal): RouteFinding | u
   if (
     signal.kind === "station_disruption" &&
     signal.status !== "delayed" &&
-    (path.stationIds.includes(signal.stationId) || routeIntersectsPolygon(path.coordinates, signal.polygon))
+    (path.stationIds.includes(signal.stationId) ||
+      routeIntersectsPolygon(path.coordinates, signal.polygon))
   ) {
     return RouteFindingSchema.parse({
       code: "station_disrupted",
@@ -49,7 +53,11 @@ function hardAreaFinding(path: RoutePath, signal: RouteSignal): RouteFinding | u
       message: `路線 ${path.id} 需要經過異常車站 ${signal.stationId}`,
     });
   }
-  if (signal.kind === "low_lighting" && signal.severity === "blocked" && routeIntersectsPolygon(path.coordinates, signal.polygon)) {
+  if (
+    signal.kind === "low_lighting" &&
+    signal.severity === "blocked" &&
+    routeIntersectsPolygon(path.coordinates, signal.polygon)
+  ) {
     return RouteFindingSchema.parse({
       code: "low_lighting",
       severity: "error",
@@ -60,9 +68,15 @@ function hardAreaFinding(path: RoutePath, signal: RouteSignal): RouteFinding | u
   return undefined;
 }
 
-function bikeFinding(request: RouteRequest, path: RoutePath, signal: RouteSignal): RouteFinding | undefined {
+function bikeFinding(
+  request: RouteRequest,
+  path: RoutePath,
+  signal: RouteSignal,
+): RouteFinding | undefined {
   if (path.profile !== "bike" || signal.kind !== "bike_station") return undefined;
-  const requirement = request.bikeStations.find((station) => station.stationId === signal.stationId);
+  const requirement = request.bikeStations.find(
+    (station) => station.stationId === signal.stationId,
+  );
   if (!requirement) return undefined;
   if (requirement.role === "origin_pickup" && signal.availableBikes === 0) {
     return RouteFindingSchema.parse({
@@ -103,7 +117,11 @@ function evaluate(request: RouteRequest, path: RoutePath, signals: RouteSignal[]
       );
       score += signal.delaySeconds;
     }
-    if (signal.kind === "flood_zone" && signal.severity === "warning" && routeIntersectsPolygon(path.coordinates, signal.polygon)) {
+    if (
+      signal.kind === "flood_zone" &&
+      signal.severity === "warning" &&
+      routeIntersectsPolygon(path.coordinates, signal.polygon)
+    ) {
       findings.push(
         RouteFindingSchema.parse({
           code: "flooded_segment",
@@ -114,7 +132,12 @@ function evaluate(request: RouteRequest, path: RoutePath, signals: RouteSignal[]
       );
       score += 300;
     }
-    if (signal.kind === "station_disruption" && signal.status === "delayed" && (path.stationIds.includes(signal.stationId) || routeIntersectsPolygon(path.coordinates, signal.polygon))) {
+    if (
+      signal.kind === "station_disruption" &&
+      signal.status === "delayed" &&
+      (path.stationIds.includes(signal.stationId) ||
+        routeIntersectsPolygon(path.coordinates, signal.polygon))
+    ) {
       findings.push(
         RouteFindingSchema.parse({
           code: "station_disrupted",
@@ -125,7 +148,11 @@ function evaluate(request: RouteRequest, path: RoutePath, signals: RouteSignal[]
       );
       score += 600;
     }
-    if (signal.kind === "low_lighting" && signal.severity === "warning" && routeIntersectsPolygon(path.coordinates, signal.polygon)) {
+    if (
+      signal.kind === "low_lighting" &&
+      signal.severity === "warning" &&
+      routeIntersectsPolygon(path.coordinates, signal.polygon)
+    ) {
       findings.push(
         RouteFindingSchema.parse({
           code: "low_lighting",
@@ -146,7 +173,9 @@ function evaluate(request: RouteRequest, path: RoutePath, signals: RouteSignal[]
 }
 
 function uniquePaths(paths: RoutePath[]): RoutePath[] {
-  return paths.filter((path, index, all) => all.findIndex((candidate) => candidate.id === path.id) === index);
+  return paths.filter(
+    (path, index, all) => all.findIndex((candidate) => candidate.id === path.id) === index,
+  );
 }
 
 function uniqueStrings(values: string[]): string[] {
@@ -160,14 +189,15 @@ export class RoutePlanner {
     const request = RouteRequestSchema.parse(rawRequest);
     const signals = rawSignals.map((signal) => RouteSignalSchema.parse(signal));
     const baselineResults = await Promise.all(
-      request.profiles.map((profile) => this.provider.calculate({ request, profile, blockedSignals: [] })),
+      request.profiles.map((profile) =>
+        this.provider.calculate({ request, profile, blockedSignals: [] }),
+      ),
     );
     const baselinePaths = uniquePaths(
-      baselineResults
-        .filter((result) => result.status === "ok")
-        .flatMap((result) => result.paths),
+      baselineResults.filter((result) => result.status === "ok").flatMap((result) => result.paths),
     );
-    if (!baselinePaths.length) return this.unavailable(request, signals, "GraphHopper 沒有回傳基準路線");
+    if (!baselinePaths.length)
+      return this.unavailable(request, signals, "GraphHopper 沒有回傳基準路線");
 
     const candidateResults = signals.length
       ? await Promise.all(
@@ -177,11 +207,10 @@ export class RoutePlanner {
         )
       : baselineResults;
     const candidatePaths = uniquePaths(
-      candidateResults
-        .filter((result) => result.status === "ok")
-        .flatMap((result) => result.paths),
+      candidateResults.filter((result) => result.status === "ok").flatMap((result) => result.paths),
     );
-    if (!candidatePaths.length) return this.unavailable(request, signals, "GraphHopper 沒有回傳候選路線");
+    if (!candidatePaths.length)
+      return this.unavailable(request, signals, "GraphHopper 沒有回傳候選路線");
 
     const evaluations = uniquePaths([...candidatePaths, ...baselinePaths]).map((path) =>
       evaluate(request, path, signals),
@@ -191,7 +220,10 @@ export class RoutePlanner {
       .sort((left, right) => left.path.durationSeconds - right.path.durationSeconds)[0]?.path;
     const allowed = evaluations
       .filter((evaluation) => evaluation.allowed)
-      .sort((left, right) => left.score - right.score || left.path.durationSeconds - right.path.durationSeconds);
+      .sort(
+        (left, right) =>
+          left.score - right.score || left.path.durationSeconds - right.path.durationSeconds,
+      );
     const evidenceIds = uniqueStrings(signals.map((signal) => signal.evidenceId));
     if (!allowed.length) {
       return RoutePlanSchema.parse({
@@ -207,13 +239,24 @@ export class RoutePlanner {
       });
     }
 
-    const selected = allowed[0];
+    const baselineEvaluation = baseline
+      ? evaluations.find((evaluation) => evaluation.path.id === baseline.id)
+      : undefined;
+    const boundedAllowed = baselineEvaluation?.allowed
+      ? allowed.filter(
+          (evaluation) =>
+            evaluation.path.id === baseline.id ||
+            evaluation.score <= baseline.durationSeconds + request.maxExtraMinutes * 60,
+        )
+      : allowed;
+    const selected = boundedAllowed[0] ?? allowed[0];
     if (!selected) return this.unavailable(request, signals, "沒有可選擇的候選路線");
     const alternatives = allowed.slice(1).map((evaluation) => evaluation.path);
     const baselineFindings = baseline ? evaluate(request, baseline, signals).findings : [];
-    const reason = baseline && baseline.id !== selected.path.id
-      ? `已從 ${baseline.id} 改道；原因：${baselineFindings.map((finding) => finding.message).join("、") || "候選路線評分較低"}`
-      : "目前路線通過城市狀態檢查";
+    const reason =
+      baseline && baseline.id !== selected.path.id
+        ? `已從 ${baseline.id} 改道；原因：${baselineFindings.map((finding) => finding.message).join("、") || "候選路線評分較低"}`
+        : "目前路線通過城市狀態檢查";
     return RoutePlanSchema.parse({
       id: `plan-${randomUUID()}`,
       status: "ok",
@@ -242,8 +285,4 @@ export class RoutePlanner {
       reason,
     });
   }
-}
-
-export function parseProviderResult(result: RouteProviderResult): RouteProviderResult {
-  return RouteProviderResultSchema.parse(result);
 }

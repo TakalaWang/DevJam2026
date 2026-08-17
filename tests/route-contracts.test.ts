@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  RoutePlanSchema,
-  RouteRequestSchema,
-  RouteSessionSchema,
-  RouteSignalSchema,
-} from "../src/contracts";
+import { RoutePlanSchema, RouteRequestSchema, RouteSignalSchema } from "../src/contracts";
 
 const point = (label: string, latitude: number, longitude: number) => ({
   label,
@@ -52,7 +47,7 @@ describe("route contracts", () => {
     expect(signal.kind).toBe("flood_zone");
   });
 
-  it("parses a no-safe-route plan and a persisted session", () => {
+  it("parses a no-safe-route plan", () => {
     const plan = RoutePlanSchema.parse({
       id: "plan-1",
       status: "no_safe_route",
@@ -63,16 +58,6 @@ describe("route contracts", () => {
       evidenceIds: [],
       reason: "所有候選路線都穿過封閉區域",
     });
-    const session = RouteSessionSchema.parse({
-      id: "session-1",
-      userId: "test-user",
-      status: "planned",
-      revision: 1,
-      request: plan.request,
-      latestPlan: plan,
-      createdAt: "2026-08-17T08:00:00+08:00",
-      updatedAt: "2026-08-17T08:00:00+08:00",
-    });
-    expect(session.latestPlan?.status).toBe("no_safe_route");
+    expect(plan.status).toBe("no_safe_route");
   });
 });

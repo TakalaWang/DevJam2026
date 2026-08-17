@@ -31,15 +31,36 @@ const path = (
     provider: "graphhopper",
   });
 
-const directCar = path("car-direct", "car", [origin, { latitude: 25, longitude: 121.01 }, destination], 100, ["mrt-1"]);
+const directCar = path(
+  "car-direct",
+  "car",
+  [origin, { latitude: 25, longitude: 121.01 }, destination],
+  100,
+  ["mrt-1"],
+);
 const detourCar = path(
   "car-detour",
   "car",
-  [origin, { latitude: 25.01, longitude: 121.005 }, { latitude: 25.01, longitude: 121.015 }, destination],
+  [
+    origin,
+    { latitude: 25.01, longitude: 121.005 },
+    { latitude: 25.01, longitude: 121.015 },
+    destination,
+  ],
   150,
 );
-const directBike = path("bike-direct", "bike", [origin, { latitude: 25, longitude: 121.01 }, destination], 80);
-const directFoot = path("foot-direct", "foot", [origin, { latitude: 25.004, longitude: 121.01 }, destination], 150);
+const directBike = path(
+  "bike-direct",
+  "bike",
+  [origin, { latitude: 25, longitude: 121.01 }, destination],
+  80,
+);
+const directFoot = path(
+  "foot-direct",
+  "foot",
+  [origin, { latitude: 25.004, longitude: 121.01 }, destination],
+  150,
+);
 
 const request = (profiles: ("car" | "bike" | "foot")[] = ["car"]) =>
   RouteRequestSchema.parse({
@@ -86,10 +107,9 @@ describe("disruption-aware route planner", () => {
   });
 
   it("reroutes around a flooded area", async () => {
-    const result = await planner().plan(
-      request(),
-      [signal({ kind: "flood_zone", polygon: blockedPolygon, severity: "blocked" })],
-    );
+    const result = await planner().plan(request(), [
+      signal({ kind: "flood_zone", polygon: blockedPolygon, severity: "blocked" }),
+    ]);
     expect(result.status).toBe("ok");
     if (result.status === "ok") {
       expect(result.baseline.id).toBe("car-direct");
@@ -99,35 +119,29 @@ describe("disruption-aware route planner", () => {
   });
 
   it("reroutes around a road closure and a closed station", async () => {
-    const result = await planner().plan(
-      request(),
-      [
-        signal({ kind: "road_closure", polygon: blockedPolygon, severity: "blocked" }),
-        signal({
-          kind: "station_disruption",
-          stationId: "mrt-1",
-          polygon: blockedPolygon,
-          status: "closed",
-        }),
-      ],
-    );
+    const result = await planner().plan(request(), [
+      signal({ kind: "road_closure", polygon: blockedPolygon, severity: "blocked" }),
+      signal({
+        kind: "station_disruption",
+        stationId: "mrt-1",
+        polygon: blockedPolygon,
+        status: "closed",
+      }),
+    ]);
     expect(result.status).toBe("ok");
     if (result.status === "ok") expect(result.selected.id).toBe("car-detour");
   });
 
   it("changes from bike to walking when the origin has no bikes", async () => {
-    const result = await planner().plan(
-      request(["bike", "foot"]),
-      [
-        signal({
-          kind: "bike_station",
-          stationId: "bike-origin",
-          coordinate: origin,
-          availableBikes: 0,
-          availableDocks: 10,
-        }),
-      ],
-    );
+    const result = await planner().plan(request(["bike", "foot"]), [
+      signal({
+        kind: "bike_station",
+        stationId: "bike-origin",
+        coordinate: origin,
+        availableBikes: 0,
+        availableDocks: 10,
+      }),
+    ]);
     expect(result.status).toBe("ok");
     if (result.status === "ok") expect(result.selected.profile).toBe("foot");
   });
@@ -136,10 +150,9 @@ describe("disruption-aware route planner", () => {
     const blockedProvider = new FixtureGraphHopperProvider([
       { profile: "car", normal: [directCar], rerouted: [directCar] },
     ]);
-    const result = await new RoutePlanner(blockedProvider).plan(
-      request(),
-      [signal({ kind: "flood_zone", polygon: blockedPolygon, severity: "blocked" })],
-    );
+    const result = await new RoutePlanner(blockedProvider).plan(request(), [
+      signal({ kind: "flood_zone", polygon: blockedPolygon, severity: "blocked" }),
+    ]);
     expect(result.status).toBe("no_safe_route");
   });
 });

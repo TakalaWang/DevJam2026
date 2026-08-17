@@ -181,32 +181,3 @@ export const RoutePlanSchema = z.discriminatedUnion("status", [
   }),
 ]);
 export type RoutePlan = z.infer<typeof RoutePlanSchema>;
-
-export const RouteSessionStatusSchema = z.enum(["created", "planned", "unavailable"]);
-export const RouteSessionSchema = z.object({
-  id: z.string().min(1),
-  userId: z.string().min(1),
-  status: RouteSessionStatusSchema,
-  revision: z.number().int().nonnegative(),
-  request: RouteRequestSchema,
-  latestPlan: RoutePlanSchema.optional(),
-  createdAt: RouteTimestampSchema,
-  updatedAt: RouteTimestampSchema,
-});
-export type RouteSession = z.infer<typeof RouteSessionSchema>;
-
-export const RouteRunStatusSchema = z.enum(["queued", "running", "succeeded", "failed"]);
-export const RouteRunErrorSchema = z.object({
-  code: z.enum(["route_provider_unavailable", "route_no_safe_path", "route_invalid", "not_found"]),
-  message: z.string().min(1),
-});
-export const RouteRunSchema = z.object({
-  id: z.string().min(1),
-  sessionId: z.string().min(1),
-  status: RouteRunStatusSchema,
-  plan: RoutePlanSchema.optional(),
-  error: RouteRunErrorSchema.optional(),
-  createdAt: RouteTimestampSchema,
-  completedAt: RouteTimestampSchema.optional(),
-});
-export type RouteRun = z.infer<typeof RouteRunSchema>;

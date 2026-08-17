@@ -90,7 +90,11 @@ export function createBlockedAreaCustomModel(signals: RouteSignal[]): GraphHoppe
   return GraphHopperCustomModelSchema.parse({ areas, priority });
 }
 
-function toRoutePath(profile: RouteProfile, index: number, rawPath: z.infer<typeof GraphHopperRawPathSchema>): RoutePath {
+function toRoutePath(
+  profile: RouteProfile,
+  index: number,
+  rawPath: z.infer<typeof GraphHopperRawPathSchema>,
+): RoutePath {
   const coordinates = rawPath.points.coordinates.map(([longitude, latitude]) =>
     CoordinateSchema.parse({ latitude, longitude }),
   );
@@ -116,7 +120,8 @@ export class GraphHopperRouteProvider {
   private readonly fetchImpl: typeof fetch;
 
   constructor(options: GraphHopperRouteProviderOptions = {}) {
-    this.baseUrl = options.baseUrl ?? process.env.GRAPHHOPPER_BASE_URL ?? "https://graphhopper.com/api/1";
+    this.baseUrl =
+      options.baseUrl ?? process.env.GRAPHHOPPER_BASE_URL ?? "https://graphhopper.com/api/1";
     this.apiKey = options.apiKey ?? process.env.GRAPHHOPPER_API_KEY;
     this.fetchImpl = options.fetchImpl ?? fetch;
   }
@@ -125,7 +130,10 @@ export class GraphHopperRouteProvider {
     const request = RouteRequestSchema.parse(input.request);
     const signals = input.blockedSignals.map((signal) => RouteSignalSchema.parse(signal));
     const url = new URL("route", `${this.baseUrl.replace(/\/$/, "")}/`);
-    url.searchParams.set("point", `${request.origin.coordinate.latitude},${request.origin.coordinate.longitude}`);
+    url.searchParams.set(
+      "point",
+      `${request.origin.coordinate.latitude},${request.origin.coordinate.longitude}`,
+    );
     url.searchParams.append(
       "point",
       `${request.destination.coordinate.latitude},${request.destination.coordinate.longitude}`,

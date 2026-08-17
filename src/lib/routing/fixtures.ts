@@ -1,6 +1,5 @@
 import {
   RouteProviderResultSchema,
-  RouteSignalSchema,
   type RoutePath,
   type RouteProfile,
   type RouteProviderResult,
@@ -51,8 +50,4 @@ export class FixtureGraphHopperProvider implements RouteProvider {
       }),
     );
   }
-}
-
-export function parseFixtureSignal(signal: RouteSignal): RouteSignal {
-  return RouteSignalSchema.parse(signal);
 }

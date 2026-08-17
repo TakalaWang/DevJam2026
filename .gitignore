@@ -15,4 +15,6 @@ __pycache__/
 htmlcov/
 .mypy_cache/
 .DS_Store
+.playwright-cli/
+output/playwright/
 *.tsbuildinfo
