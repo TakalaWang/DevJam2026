@@ -56,7 +56,9 @@ class ConfirmationFixtureItineraryAgent extends FixtureItineraryAgent {
       return ConversationAgentResultSchema.parse({
         output: ConversationAgentOutputSchema.parse({
           message: "已接受路線更新，繼續執行行程。",
+          planningPhase: "refining",
           planningStatus: "ready",
+          facts: itinerary.planningFacts,
           command: { action: "ack_notification", notificationId: notification.id },
         }),
         interactionId: `fixture-ack-${itinerary.id}`,
@@ -115,6 +117,18 @@ function service(
   );
 }
 
+async function planConcert(
+  orchestrator: ItineraryOrchestrator,
+  itinerary: ReturnType<ItineraryOrchestrator["createSession"]>,
+) {
+  await orchestrator.sendMessage(itinerary.id, "我今天想去聽演唱會");
+  await orchestrator.sendMessage(
+    itinerary.id,
+    "從台北車站出發，10點出門，搭大眾運輸，晚上十點前回家。",
+  );
+  return orchestrator.sendMessage(itinerary.id, "確認，就這樣安排");
+}
+
 describe("day itinerary orchestration", () => {
   it("clarifies a vague request before filling a blank day", async () => {
     const orchestrator = service();
@@ -132,16 +146,20 @@ describe("day itinerary orchestration", () => {
       itinerary.id,
       "從台北車站出發，照剛才看展和吃飯的想法安排。",
     );
-    expect(clarified.itinerary.status).toBe("ready");
-    expect(clarified.itinerary.stops.map((stop) => stop.title)).toEqual(["下午看展", "晚餐散步"]);
-    expect(clarified.itinerary.legs).toHaveLength(3);
-    expect(clarified.itinerary.legs.every((leg) => leg.status !== "blocked")).toBe(true);
+    expect(clarified.itinerary.status).toBe("discussing");
+    expect(clarified.itinerary.planningPhase).toBe("awaiting_confirmation");
+
+    const confirmed = await orchestrator.sendMessage(itinerary.id, "確認，這樣安排沒問題");
+    expect(confirmed.itinerary.status).toBe("ready");
+    expect(confirmed.itinerary.stops.map((stop) => stop.title)).toEqual(["下午看展", "晚餐散步"]);
+    expect(confirmed.itinerary.legs).toHaveLength(3);
+    expect(confirmed.itinerary.legs.every((leg) => leg.status !== "blocked")).toBe(true);
   });
 
   it("builds a concert day through conversation and starts navigation", async () => {
     const orchestrator = service();
     const itinerary = orchestrator.createSession("user-1", "2026-08-17");
-    const proposed = await orchestrator.sendMessage(itinerary.id, "我今天想去聽演唱會");
+    const proposed = await planConcert(orchestrator, itinerary);
     expect(proposed.itinerary.status).toBe("ready");
     expect(proposed.itinerary.stops).toHaveLength(2);
     expect(proposed.itinerary.legs).toHaveLength(3);
@@ -154,7 +172,7 @@ describe("day itinerary orchestration", () => {
   it("refreshes active legs and stores an update notification", async () => {
     const orchestrator = service();
     const itinerary = orchestrator.createSession("user-1", "2026-08-17");
-    await orchestrator.sendMessage(itinerary.id, "我今天想去聽演唱會");
+    await planConcert(orchestrator, itinerary);
     await orchestrator.sendMessage(itinerary.id, "開始行程");
     const refreshed = await orchestrator.refresh(itinerary.id, [
       {
@@ -174,7 +192,7 @@ describe("day itinerary orchestration", () => {
         summary: "道路積水禁止通行",
       },
     ]);
-    expect(refreshed.itinerary.revision).toBe(3);
+    expect(refreshed.itinerary.revision).toBe(5);
     expect(refreshed.itinerary.notifications).toHaveLength(1);
     expect(refreshed.notification?.kind).toBe("service_disruption");
     expect(refreshed.notification?.message).toContain("淹水區");
@@ -186,7 +204,7 @@ describe("day itinerary orchestration", () => {
   it("resumes active navigation after acknowledging a safe route update", async () => {
     const orchestrator = service(new ConfirmationFixtureItineraryAgent());
     const itinerary = orchestrator.createSession("user-1", "2026-08-17");
-    await orchestrator.sendMessage(itinerary.id, "我今天想去聽演唱會");
+    await planConcert(orchestrator, itinerary);
     await orchestrator.sendMessage(itinerary.id, "開始行程");
 
     const refreshed = await orchestrator.refresh(itinerary.id, [
@@ -225,7 +243,7 @@ describe("day itinerary orchestration", () => {
     );
     const orchestrator = service(new FixtureItineraryAgent(), provider, new EmptyCityGateway());
     const itinerary = orchestrator.createSession("user-1", "2026-08-17");
-    await orchestrator.sendMessage(itinerary.id, "我今天想去聽演唱會");
+    await planConcert(orchestrator, itinerary);
     await orchestrator.sendMessage(itinerary.id, "開始行程");
     const before = orchestrator.getSession(itinerary.id);
     if (!before) throw new Error("fixture session 不存在");
@@ -242,7 +260,7 @@ describe("day itinerary orchestration", () => {
   it("completes the whole day and marks stops and return leg complete", async () => {
     const orchestrator = service();
     const itinerary = orchestrator.createSession("user-1", "2026-08-17");
-    await orchestrator.sendMessage(itinerary.id, "我今天想去聽演唱會");
+    await planConcert(orchestrator, itinerary);
     await orchestrator.sendMessage(itinerary.id, "開始行程");
     const completed = await orchestrator.sendMessage(itinerary.id, "完成行程");
     expect(completed.itinerary.status).toBe("completed");
@@ -258,7 +276,7 @@ describe("day itinerary orchestration", () => {
         "demo-user",
         new Date().toISOString().slice(0, 10),
       );
-      await orchestrator.sendMessage(itinerary.id, "我今天想去聽演唱會");
+      await planConcert(orchestrator, itinerary);
       await orchestrator.sendMessage(itinerary.id, "開始行程");
 
       const refreshed = await orchestrator.demoRefresh(itinerary.id, scenario);

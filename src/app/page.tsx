@@ -174,16 +174,33 @@ function SvgRouteMap({
   const coordinates = snapshot.legs.flatMap((leg) => leg.route?.coordinates ?? []);
   const routePoints = coordinates.map((coordinate) => ({ label: "route", coordinate }));
   const drawablePoints = routePoints.length ? routePoints : points;
-  const polyline = drawablePoints
-    .map((point) => mapPosition(point, points))
-    .map(([x, y]) => `${x},${y}`)
+  const routePath = drawablePoints
+    .map((point, index) => {
+      const [x, y] = mapPosition(point, points);
+      return `${index === 0 ? "M" : "L"} ${x} ${y}`;
+    })
     .join(" ");
+  const isNavigating = snapshot.status === "active";
 
   return (
-    <div className="route-map" aria-label="完整一日行程路線圖" role="img">
+    <div
+      className={`route-map ${isNavigating ? "is-navigating" : ""}`}
+      aria-label={isNavigating ? "導航中的一日行程路線圖" : "完整一日行程路線圖"}
+      role="img"
+    >
       <div className="map-grid" aria-hidden="true" />
       <svg viewBox="0 0 400 280" aria-hidden="true">
-        {polyline && <polyline className="map-route" points={polyline} />}
+        {routePath && <path className="map-route" d={routePath} id="svg-route-path" />}
+        {isNavigating && routePath && (
+          <g className="map-traveler">
+            <circle className="map-traveler-halo" r="13" />
+            <circle className="map-traveler-dot" r="7" />
+            <path d="M -2 -1 L 5 0 L 0 5 Z" />
+            <animateMotion dur="5.5s" repeatCount="indefinite" rotate="auto">
+              <mpath href="#svg-route-path" />
+            </animateMotion>
+          </g>
+        )}
         {points.map((point, index) => {
           const [x, y] = mapPosition(point, points);
           return (
@@ -197,6 +214,11 @@ function SvgRouteMap({
           );
         })}
       </svg>
+      {isNavigating && (
+        <div className="map-navigation-badge">
+          <span className="status-dot" /> 導航中
+        </div>
+      )}
       <div className="map-caption">
         <span className="status-dot" /> {caption} · {snapshot.legs.length} 段交通
       </div>
@@ -307,9 +329,22 @@ function RouteMap({ snapshot }: { snapshot: DayItinerarySnapshot }) {
   }
 
   return (
-    <div className="route-map google-route-map" aria-label="Google Maps 一日行程路線圖" role="img">
+    <div
+      className={`route-map google-route-map ${snapshot.status === "active" ? "is-navigating" : ""}`}
+      aria-label={
+        snapshot.status === "active"
+          ? "Google Maps 導航中的一日行程路線圖"
+          : "Google Maps 一日行程路線圖"
+      }
+      role="img"
+    >
       <div className="google-map-canvas" ref={mapElementRef} />
       {mapStatus === "loading" && <div className="map-loading">正在載入 Google Maps…</div>}
+      {snapshot.status === "active" && (
+        <div className="map-navigation-badge">
+          <span className="status-dot" /> 導航中
+        </div>
+      )}
       <div className="map-caption">
         <span className="status-dot" /> Google Maps · {snapshot.legs.length} 段交通
       </div>
@@ -317,9 +352,15 @@ function RouteMap({ snapshot }: { snapshot: DayItinerarySnapshot }) {
   );
 }
 
-function LegLine({ leg }: { leg: DayItinerarySnapshot["legs"][number] }) {
+function LegLine({
+  leg,
+  active = false,
+}: {
+  leg: DayItinerarySnapshot["legs"][number];
+  active?: boolean;
+}) {
   return (
-    <div className={`leg-line ${leg.status}`}>
+    <div className={`leg-line ${leg.status} ${active ? "current" : ""}`}>
       <span>↳</span>
       <strong>{leg.status === "blocked" ? "路段受阻" : modeLabel(leg.route?.profile)}</strong>
       <span>
@@ -329,9 +370,54 @@ function LegLine({ leg }: { leg: DayItinerarySnapshot["legs"][number] }) {
   );
 }
 
+function activeNavigation(snapshot: DayItinerarySnapshot) {
+  if (snapshot.status !== "active") return undefined;
+  const leg = snapshot.legs.find((candidate) => candidate.status === "active");
+  if (!leg) return undefined;
+  const destination = snapshot.stops.find((stop) => stop.id === leg.toStopId);
+  return { leg, destination };
+}
+
+function NavigationStatus({ snapshot }: { snapshot: DayItinerarySnapshot }) {
+  const navigation = activeNavigation(snapshot);
+  if (!navigation) return null;
+  const from =
+    navigation.leg.fromStopId === "origin"
+      ? snapshot.origin?.label
+      : snapshot.stops.find((stop) => stop.id === navigation.leg.fromStopId)?.title;
+
+  return (
+    <section className="navigation-status" aria-label="目前導航狀態">
+      <div className="navigation-heading">
+        <div>
+          <span className="navigation-live">
+            <span className="status-dot" /> 正在導航
+          </span>
+          <strong>前往 {navigation.destination?.title ?? "下一站"}</strong>
+        </div>
+        <span className="navigation-mode">{modeLabel(navigation.leg.route?.profile)}</span>
+      </div>
+      <div className="navigation-track" aria-hidden="true">
+        <span className="navigation-track-start" />
+        <span className="navigation-track-line">
+          <span className="navigation-track-progress" />
+        </span>
+        <span className="navigation-traveler" />
+        <span className="navigation-track-end" />
+      </div>
+      <div className="navigation-details">
+        <span>{from ?? "目前位置"}</span>
+        <strong>約 {formatDuration(navigation.leg.route?.durationSeconds)}</strong>
+        <span>{navigation.destination?.location.label ?? "下一站"}</span>
+      </div>
+    </section>
+  );
+}
+
 function StopTimeline({ snapshot }: { snapshot: DayItinerarySnapshot }) {
   const returnLeg = snapshot.legs.at(-1)?.toStopId === "home" ? snapshot.legs.at(-1) : undefined;
   const activityLegs = returnLeg ? snapshot.legs.slice(0, -1) : snapshot.legs;
+  const navigation = activeNavigation(snapshot);
   return (
     <div className="timeline">
       {snapshot.origin && (
@@ -345,8 +431,13 @@ function StopTimeline({ snapshot }: { snapshot: DayItinerarySnapshot }) {
       )}
       {snapshot.stops.map((stop, index) => (
         <div className="timeline-group" key={stop.id}>
-          {activityLegs[index] && <LegLine leg={activityLegs[index]} />}
-          <div className="timeline-row">
+          {activityLegs[index] && (
+            <LegLine leg={activityLegs[index]} active={activityLegs[index].status === "active"} />
+          )}
+          <div
+            aria-current={stop.id === snapshot.currentStopId ? "step" : undefined}
+            className={`timeline-row ${stop.id === snapshot.currentStopId ? "current" : ""}`}
+          >
             <span className={`timeline-dot ${stop.constraint} ${stop.status}`} />
             <div className="timeline-copy">
               <small>
@@ -357,14 +448,18 @@ function StopTimeline({ snapshot }: { snapshot: DayItinerarySnapshot }) {
               <span>{stop.location.label}</span>
             </div>
             <span className={`constraint ${stop.constraint}`}>
-              {stop.constraint === "fixed" ? "FIXED" : "FLEX"}
+              {stop.id === navigation?.leg.toStopId
+                ? "NEXT"
+                : stop.constraint === "fixed"
+                  ? "FIXED"
+                  : "FLEX"}
             </span>
           </div>
         </div>
       ))}
       {returnLeg && snapshot.origin && (
         <div className="timeline-group return-group">
-          <LegLine leg={returnLeg} />
+          <LegLine leg={returnLeg} active={returnLeg.status === "active"} />
           <div className="timeline-row">
             <span className="timeline-dot origin" />
             <div className="timeline-copy">
@@ -804,7 +899,6 @@ export default function Page() {
             <>
               <div className="conversation-heading">
                 <div>
-                  <p className="kicker">02 / ROUTA CONVERSATION</p>
                   <h2>{itinerary?.date} 的行程計劃</h2>
                 </div>
                 <span className="status-chip">
@@ -881,7 +975,6 @@ export default function Page() {
             <>
               <div className="itinerary-heading">
                 <div>
-                  <p className="kicker">03 / CURRENT ITINERARY</p>
                   <h2>{itinerary.date}</h2>
                 </div>
                 <span className="status-chip">
@@ -926,6 +1019,7 @@ export default function Page() {
                 </div>
                 <span className="route-source">GOOGLE ROUTES</span>
               </div>
+              <NavigationStatus snapshot={itinerary} />
               <RouteMap key={`${itinerary.id}-${itinerary.revision}`} snapshot={itinerary} />
               <StopTimeline snapshot={itinerary} />
               {readyToStart && (

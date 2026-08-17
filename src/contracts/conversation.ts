@@ -8,6 +8,7 @@ import {
   ItineraryTimestampSchema,
   ItineraryRouteChangeSchema,
 } from "./itinerary";
+import { PlanningFactsSchema, PlanningPhaseSchema } from "./planning";
 import { RoutePointSchema, RouteProfileSchema } from "./route";
 
 export const ConversationAgentInputSchema = z.object({
@@ -18,7 +19,9 @@ export type ConversationAgentInput = z.infer<typeof ConversationAgentInputSchema
 
 export const ConversationAgentOutputSchema = z.object({
   message: z.string().min(1),
-  planningStatus: z.enum(["needs_details", "ready"]),
+  planningPhase: PlanningPhaseSchema,
+  planningStatus: z.enum(["needs_details", "awaiting_confirmation", "ready"]),
+  facts: PlanningFactsSchema,
   command: ItineraryCommandSchema,
 });
 export type ConversationAgentOutput = z.infer<typeof ConversationAgentOutputSchema>;
@@ -53,7 +56,9 @@ const ConversationCommandModelSchema = z.object({
 
 export const ConversationAgentModelOutputSchema = z.object({
   message: z.string().min(1),
-  planningStatus: z.enum(["needs_details", "ready"]),
+  planningPhase: PlanningPhaseSchema,
+  planningStatus: z.enum(["needs_details", "awaiting_confirmation", "ready"]),
+  facts: PlanningFactsSchema,
   command: ConversationCommandModelSchema,
 });
 export type ConversationAgentModelOutput = z.infer<typeof ConversationAgentModelOutputSchema>;

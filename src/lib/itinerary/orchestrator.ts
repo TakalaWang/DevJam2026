@@ -4,6 +4,7 @@ import {
   DayItinerarySnapshotSchema,
   ItineraryNotificationSchema,
   ItineraryCommandSchema,
+  PlanningFactsSchema,
   RouteSignalSchema,
   type DemoScenario,
   type ConversationAgentOutput,
@@ -28,6 +29,11 @@ import { DemoRouteProvider } from "../routing/demo";
 import { RoutePlanner } from "../routing/planner";
 import { demoSignal } from "./demo";
 import { CityDataGateway } from "../city/gateway";
+import {
+  assessPlanningReadiness,
+  hasCollectedPlanningFacts,
+  hasExplicitConfirmation,
+} from "./readiness";
 
 export type ItineraryOperationResult = {
   itinerary: DayItinerarySnapshot;
@@ -98,8 +104,8 @@ export class ItineraryOrchestrator {
       const parsedOutput = this.parseOutput(agentResult.output);
       const applied = await this.applyCommand(
         current,
-        parsedOutput.command,
-        parsedOutput.planningStatus,
+        parsedOutput,
+        userMessage,
       );
       const itinerary = applied.changed ? this.store.saveSession(applied.snapshot) : current;
       const completed = this.store.saveRun({
@@ -224,20 +230,44 @@ export class ItineraryOrchestrator {
 
   private async applyCommand(
     current: DayItinerarySnapshot,
-    rawCommand: ItineraryCommand,
-    planningStatus: ConversationAgentOutput["planningStatus"],
+    output: ConversationAgentOutput,
+    userMessage: string,
   ): Promise<{ snapshot: DayItinerarySnapshot; changed: boolean }> {
-    const command = ItineraryCommandSchema.parse(rawCommand);
-    if (command.action === "ask_clarification") return { snapshot: current, changed: false };
+    const command = ItineraryCommandSchema.parse(output.command);
+    const facts = this.resolvePlanningFacts(current, output, userMessage);
+    const readiness = assessPlanningReadiness(facts);
+    const planningPhase = readiness.ready
+      ? output.planningPhase
+      : facts.confirmation !== "confirmed" && hasCollectedPlanningFacts(facts)
+        ? "awaiting_confirmation"
+        : "collecting";
+    if (command.action === "ask_clarification") {
+      const next = DayItinerarySnapshotSchema.parse({
+        ...current,
+        planningPhase,
+        planningFacts: facts,
+        status: current.status === "active" ? "active" : "discussing",
+      });
+      return { snapshot: next, changed: changedSnapshot(current, next) };
+    }
     if (command.action === "propose_day") {
+      if (!readiness.ready || output.planningStatus !== "ready") {
+        const next = DayItinerarySnapshotSchema.parse({
+          ...current,
+          planningPhase,
+          planningFacts: facts,
+          status: current.status === "active" ? "active" : "discussing",
+        });
+        return { snapshot: next, changed: changedSnapshot(current, next) };
+      }
       const proposed = DayItinerarySnapshotSchema.parse({
         ...current,
+        planningPhase: "scheduling",
+        planningFacts: facts,
         status:
           current.status === "active"
             ? "active"
-            : planningStatus === "ready"
-              ? "ready"
-              : "discussing",
+            : "ready",
         date: command.date,
         startAt: command.startAt,
         endAt: command.endAt,
@@ -258,10 +288,12 @@ export class ItineraryOrchestrator {
       stops.splice(Math.max(insertAt, 0), 0, { ...command.stop, id: stopId(), status: "planned" });
       const next = DayItinerarySnapshotSchema.parse({
         ...current,
+        planningPhase: readiness.ready ? "refining" : planningPhase,
+        planningFacts: facts,
         status:
           current.status === "active"
             ? "active"
-            : planningStatus === "ready"
+            : readiness.ready
               ? "ready"
               : "discussing",
         stops,
@@ -272,10 +304,12 @@ export class ItineraryOrchestrator {
       const stops = current.stops.filter((stop) => stop.id !== command.stopId);
       const next = DayItinerarySnapshotSchema.parse({
         ...current,
+        planningPhase: readiness.ready ? "refining" : planningPhase,
+        planningFacts: facts,
         status: stops.length
           ? current.status === "active"
             ? "active"
-            : planningStatus === "ready"
+            : readiness.ready
               ? "ready"
               : "discussing"
           : "discussing",
@@ -294,10 +328,12 @@ export class ItineraryOrchestrator {
       remaining.splice(Math.max(insertAt, 0), 0, moving);
       const next = DayItinerarySnapshotSchema.parse({
         ...current,
+        planningPhase: readiness.ready ? "refining" : planningPhase,
+        planningFacts: facts,
         status:
           current.status === "active"
             ? "active"
-            : planningStatus === "ready"
+            : readiness.ready
               ? "ready"
               : "discussing",
         stops: remaining,
@@ -307,6 +343,9 @@ export class ItineraryOrchestrator {
     if (command.action === "start_navigation") {
       if (!current.stops.length) throw new Error("尚未建立今日行程");
       if (current.status !== "ready") throw new Error("LLM 尚未確認行程完整");
+      if (!assessPlanningReadiness(current.planningFacts).ready) {
+        throw new Error("行程需求尚未經使用者確認");
+      }
       if (current.legs.some((leg) => leg.status === "blocked")) {
         throw new Error("仍有交通路段無法安全安排");
       }
@@ -361,6 +400,53 @@ export class ItineraryOrchestrator {
       snapshot: DayItinerarySnapshotSchema.parse({ ...current, status, notifications }),
       changed: true,
     };
+  }
+
+  private resolvePlanningFacts(
+    current: DayItinerarySnapshot,
+    output: ConversationAgentOutput,
+    userMessage: string,
+  ) {
+    if (["start_navigation", "complete_navigation", "ack_notification"].includes(output.command.action)) {
+      return PlanningFactsSchema.parse(current.planningFacts);
+    }
+    const facts = PlanningFactsSchema.parse(output.facts);
+    if (
+      current.planningFacts.confirmation === "pending" &&
+      hasExplicitConfirmation(userMessage)
+    ) {
+      return PlanningFactsSchema.parse({
+        ...facts,
+        origin: facts.origin.value ? { ...facts.origin, status: "confirmed" } : facts.origin,
+        destinations: facts.destinations.value
+          ? { ...facts.destinations, status: "confirmed" }
+          : facts.destinations,
+        departureAt: facts.departureAt.value
+          ? { ...facts.departureAt, status: "confirmed" }
+          : facts.departureAt,
+        endAt: facts.endAt.value ? { ...facts.endAt, status: "confirmed" } : facts.endAt,
+        fixedActivities: facts.fixedActivities.value
+          ? { ...facts.fixedActivities, status: "confirmed" }
+          : facts.fixedActivities,
+        transportPreference: facts.transportPreference.value
+          ? { ...facts.transportPreference, status: "confirmed" }
+          : facts.transportPreference,
+        returnPlan: facts.returnPlan.value
+          ? { ...facts.returnPlan, status: "confirmed" }
+          : facts.returnPlan,
+        constraints: facts.constraints.value
+          ? { ...facts.constraints, status: "confirmed" }
+          : facts.constraints,
+        confirmation: "confirmed",
+      });
+    }
+    if (facts.confirmation === "confirmed") {
+      return PlanningFactsSchema.parse({
+        ...facts,
+        confirmation: current.planningFacts.confirmation === "pending" ? "pending" : "not_requested",
+      });
+    }
+    return facts;
   }
 }
 

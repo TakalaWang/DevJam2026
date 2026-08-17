@@ -19,15 +19,27 @@ const emptyItinerary = DayItinerarySnapshotSchema.parse({
 });
 
 describe("Gemini conversation contract boundary", () => {
-  it("turns a concert request into a typed day proposal", async () => {
-    const output = await new FixtureItineraryAgent().interpret(
+  it("collects and confirms a concert request before proposing a day", async () => {
+    const agent = new FixtureItineraryAgent();
+    const missing = await agent.interpret(
       emptyItinerary,
       "我今天想去聽演唱會",
     );
-    expect(output.output.command.action).toBe("propose_day");
-    expect(output.output.planningStatus).toBe("ready");
-    if (output.output.command.action === "propose_day")
-      expect(output.output.command.stops).toHaveLength(2);
+    expect(missing.output.command.action).toBe("ask_clarification");
+    expect(missing.output.planningPhase).toBe("collecting");
+
+    const awaiting = await agent.interpret(
+      emptyItinerary,
+      "從台北車站出發，10點出門，搭大眾運輸，晚上十點前回家。",
+    );
+    expect(awaiting.output.command.action).toBe("ask_clarification");
+    expect(awaiting.output.planningStatus).toBe("awaiting_confirmation");
+
+    const confirmed = await agent.interpret(emptyItinerary, "確認，就這樣安排");
+    expect(confirmed.output.command.action).toBe("propose_day");
+    expect(confirmed.output.planningStatus).toBe("ready");
+    if (confirmed.output.command.action === "propose_day")
+      expect(confirmed.output.command.stops).toHaveLength(2);
   });
 
   it("turns a start message into a navigation command", async () => {

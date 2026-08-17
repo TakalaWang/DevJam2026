@@ -73,6 +73,27 @@ async function postJson(url: string, body: object): Promise<Request> {
   });
 }
 
+async function sendMessage(orchestrator: ItineraryOrchestrator, id: string, message: string) {
+  return DayItineraryResponseSchema.parse(
+    await (
+      await createMessageHandler(orchestrator)(
+        await postJson(`http://localhost/api/day-plans/${id}/messages`, { message }),
+        { params: Promise.resolve({ id }) },
+      )
+    ).json(),
+  );
+}
+
+async function planConcert(orchestrator: ItineraryOrchestrator, id: string) {
+  await sendMessage(orchestrator, id, "我今天想去聽演唱會");
+  await sendMessage(
+    orchestrator,
+    id,
+    "從台北車站出發，10點出門，搭大眾運輸，晚上十點前回家。",
+  );
+  return sendMessage(orchestrator, id, "確認，就這樣安排");
+}
+
 describe("day itinerary API", () => {
   it("supports a blank day and a vague multi-turn planning request", async () => {
     const orchestrator = service();
@@ -111,10 +132,12 @@ describe("day itinerary API", () => {
         )
       ).json(),
     );
-    expect(planned.itinerary.status).toBe("ready");
-    expect(planned.itinerary.stops).toHaveLength(2);
-    expect(planned.itinerary.legs).toHaveLength(3);
-    expect(planned.assistantMessage).toContain("看起來行程沒問題");
+    expect(planned.itinerary.status).toBe("discussing");
+    const confirmed = await sendMessage(orchestrator, id, "確認，這樣安排沒問題");
+    expect(confirmed.itinerary.status).toBe("ready");
+    expect(confirmed.itinerary.stops).toHaveLength(2);
+    expect(confirmed.itinerary.legs).toHaveLength(3);
+    expect(confirmed.assistantMessage).toContain("需求已確認");
   });
 
   it("creates a blank permanent user session", async () => {
@@ -142,16 +165,7 @@ describe("day itinerary API", () => {
       ).json(),
     );
     const id = created.itinerary.id;
-    const proposed = DayItineraryResponseSchema.parse(
-      await (
-        await createMessageHandler(orchestrator)(
-          await postJson(`http://localhost/api/day-plans/${id}/messages`, {
-            message: "我今天想去聽演唱會",
-          }),
-          { params: Promise.resolve({ id }) },
-        )
-      ).json(),
-    );
+    const proposed = await planConcert(orchestrator, id);
     expect(proposed.itinerary.stops.length).toBeGreaterThan(0);
     const started = DayItineraryResponseSchema.parse(
       await (
@@ -241,12 +255,7 @@ describe("day itinerary API", () => {
       ).json(),
     );
     const id = created.itinerary.id;
-    await createMessageHandler(orchestrator)(
-      await postJson(`http://localhost/api/day-plans/${id}/messages`, {
-        message: "我今天想去聽演唱會",
-      }),
-      { params: Promise.resolve({ id }) },
-    );
+    await planConcert(orchestrator, id);
     const detail = DayItineraryResponseSchema.parse(
       await (
         await createDetailGetHandler(orchestrator)(
@@ -257,7 +266,7 @@ describe("day itinerary API", () => {
         )
       ).json(),
     );
-    expect(detail.runs).toHaveLength(1);
+    expect(detail.runs).toHaveLength(3);
 
     await createStartHandler(orchestrator)(new Request("http://localhost/api/day-plans/start"), {
       params: Promise.resolve({ id }),
