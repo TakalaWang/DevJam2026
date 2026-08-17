@@ -252,7 +252,7 @@ function RouteMap({ snapshot }: { snapshot: DayItinerarySnapshot }) {
               })
             : undefined;
         const markers = points.map(
-          (point, index) =>
+          (point) =>
             new maps.Marker({
               map,
               position: { lat: point.coordinate.latitude, lng: point.coordinate.longitude },
@@ -758,7 +758,7 @@ export default function Page() {
                 </div>
                 <span className="route-source">GOOGLE ROUTES</span>
               </div>
-              <RouteMap snapshot={itinerary} />
+              <RouteMap key={`${itinerary.id}-${itinerary.revision}`} snapshot={itinerary} />
               <StopTimeline snapshot={itinerary} />
               {readyToStart && (
                 <div className="start-block">

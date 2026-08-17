@@ -130,7 +130,6 @@ export function loadGoogleMaps(apiKey: string): Promise<GoogleMapsNamespace> {
     };
     (globalThis as GoogleMapsGlobal).__routaGoogleMapsReady = finish;
 
-    script.addEventListener("load", finish, { once: true });
     script.addEventListener(
       "error",
       () => reject(new Error("Google Maps JavaScript API 載入失敗，請檢查 key、限制與 billing")),
