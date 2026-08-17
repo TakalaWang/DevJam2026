@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import {
   ConversationAgentOutputSchema,
   DayItinerarySnapshotSchema,
+  ItineraryNotificationSchema,
   ItineraryCommandSchema,
   RouteSignalSchema,
   type DemoScenario,
@@ -21,6 +22,7 @@ import { createItineraryAgent } from "../conversation/gemini";
 import { DayItineraryPlanner } from "./planner";
 import { ItineraryStore } from "./store";
 import { GraphHopperRouteProvider } from "../routing/graphhopper";
+import { GoogleRoutesProvider } from "../routing/google";
 import { RoutePlanner } from "../routing/planner";
 import { demoSignal } from "./demo";
 
@@ -139,12 +141,23 @@ export class ItineraryOrchestrator {
       let notification: ItineraryNotification | undefined;
       let next = refreshed;
       if (changedLegIds.length) {
+        const changes = DayItineraryPlanner.routeChanges(
+          current,
+          refreshed,
+          changedLegIds,
+          signals,
+        );
         notification = await this.agent.draftNotification({
           currentStatus: current.status,
           affectedLegIds: changedLegIds,
           affectedStopIds,
           reasonCodes: signals.map((signal) => signal.kind),
           evidenceIds: signals.map((signal) => signal.evidenceId),
+          changes,
+        });
+        notification = ItineraryNotificationSchema.parse({
+          ...notification,
+          changes,
         });
         next = DayItinerarySnapshotSchema.parse({
           ...refreshed,
@@ -321,5 +334,7 @@ export class ItineraryOrchestrator {
 export const itineraryOrchestrator = new ItineraryOrchestrator(
   new ItineraryStore(),
   createItineraryAgent(),
-  new DayItineraryPlanner(new RoutePlanner(new GraphHopperRouteProvider())),
+  new DayItineraryPlanner(
+    new RoutePlanner(new GoogleRoutesProvider(), new GraphHopperRouteProvider()),
+  ),
 );

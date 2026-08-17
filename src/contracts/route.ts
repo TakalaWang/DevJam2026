@@ -111,9 +111,16 @@ export const RoutePathSchema = z.object({
   durationSeconds: z.number().nonnegative(),
   stationIds: z.array(z.string().min(1)).default([]),
   instructions: z.array(RouteInstructionSchema).default([]),
-  provider: z.literal("graphhopper"),
+  provider: z.enum(["google", "graphhopper"]),
 });
 export type RoutePath = z.infer<typeof RoutePathSchema>;
+
+export const RouteCalculationInputSchema = z.object({
+  request: RouteRequestSchema,
+  profile: RouteProfileSchema,
+  blockedSignals: z.array(RouteSignalSchema),
+});
+export type RouteCalculationInput = z.infer<typeof RouteCalculationInputSchema>;
 
 export const RouteProviderResultSchema = z.discriminatedUnion("status", [
   z.object({ status: z.literal("ok"), paths: z.array(RoutePathSchema).min(1) }),

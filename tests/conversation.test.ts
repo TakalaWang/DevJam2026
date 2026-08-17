@@ -47,8 +47,37 @@ describe("Gemini conversation contract boundary", () => {
       affectedStopIds: ["stop-1"],
       reasonCodes: ["flooded_segment"],
       evidenceIds: ["flood-1"],
+      changes: [
+        {
+          legId: "leg-1",
+          fromStopId: "origin",
+          toStopId: "stop-1",
+          fromLabel: "台北車站",
+          toLabel: "演唱會",
+          before: {
+            status: "active",
+            provider: "google",
+            profile: "car",
+            routeId: "google-direct",
+            durationSeconds: 900,
+            distanceMeters: 3000,
+          },
+          after: {
+            status: "active",
+            provider: "graphhopper",
+            profile: "car",
+            routeId: "gh-detour",
+            durationSeconds: 1200,
+            distanceMeters: 3500,
+          },
+          delta: { durationSeconds: 300, distanceMeters: 500 },
+          reason: "道路積水禁止通行",
+          tradeoffs: ["預估增加 5 分鐘"],
+        },
+      ],
     });
     expect(output.kind).toBe("service_disruption");
     expect(output.affectedLegIds).toEqual(["leg-1"]);
+    expect(output.changes[0]?.after.provider).toBe("graphhopper");
   });
 });

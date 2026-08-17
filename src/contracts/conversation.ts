@@ -6,6 +6,7 @@ import {
   ItineraryNotificationSchema,
   ItineraryStopDraftSchema,
   ItineraryTimestampSchema,
+  ItineraryRouteChangeSchema,
 } from "./itinerary";
 import { RoutePointSchema, RouteProfileSchema } from "./route";
 
@@ -69,6 +70,7 @@ export const NotificationAgentInputSchema = z.object({
   affectedStopIds: z.array(z.string().min(1)),
   reasonCodes: z.array(z.string().min(1)),
   evidenceIds: z.array(z.string().min(1)),
+  changes: z.array(ItineraryRouteChangeSchema).min(1),
 });
 export type NotificationAgentInput = z.infer<typeof NotificationAgentInputSchema>;
 

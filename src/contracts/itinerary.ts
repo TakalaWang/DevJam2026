@@ -82,6 +82,34 @@ export const ItineraryCommandSchema = z.discriminatedUnion("action", [
 ]);
 export type ItineraryCommand = z.infer<typeof ItineraryCommandSchema>;
 
+const ItineraryLegStateSchema = z.object({
+  status: z.enum(["planned", "active", "completed", "blocked"]),
+  provider: z.enum(["google", "graphhopper"]).optional(),
+  profile: z.enum(["car", "bike", "foot"]).optional(),
+  routeId: z.string().min(1).optional(),
+  durationSeconds: z.number().int().nonnegative().optional(),
+  distanceMeters: z.number().nonnegative().optional(),
+  reason: z.string().min(1).optional(),
+});
+export type ItineraryLegState = z.infer<typeof ItineraryLegStateSchema>;
+
+export const ItineraryRouteChangeSchema = z.object({
+  legId: z.string().min(1),
+  fromStopId: z.string().min(1),
+  toStopId: z.string().min(1),
+  fromLabel: z.string().min(1),
+  toLabel: z.string().min(1),
+  before: ItineraryLegStateSchema,
+  after: ItineraryLegStateSchema,
+  delta: z.object({
+    durationSeconds: z.number().int(),
+    distanceMeters: z.number(),
+  }),
+  reason: z.string().min(1),
+  tradeoffs: z.array(z.string().min(1)),
+});
+export type ItineraryRouteChange = z.infer<typeof ItineraryRouteChangeSchema>;
+
 export const ItineraryNotificationSchema = z.object({
   id: z.string().min(1),
   kind: z.enum(["route_changed", "service_disruption", "confirmation_required"]),
@@ -90,6 +118,7 @@ export const ItineraryNotificationSchema = z.object({
   message: z.string().min(1),
   affectedLegIds: z.array(z.string().min(1)),
   affectedStopIds: z.array(z.string().min(1)),
+  changes: z.array(ItineraryRouteChangeSchema).min(1),
   requiresConfirmation: z.boolean(),
   evidenceIds: z.array(z.string().min(1)),
   createdAt: ItineraryTimestampSchema,

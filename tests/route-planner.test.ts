@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { RoutePathSchema, RouteRequestSchema, RouteSignalSchema } from "../src/contracts";
 import { FixtureGraphHopperProvider } from "../src/lib/routing/fixtures";
-import { RoutePlanner } from "../src/lib/routing/planner";
+import { RoutePlanner, type RouteProvider } from "../src/lib/routing/planner";
 
 const origin = { latitude: 25, longitude: 121 };
 const destination = { latitude: 25, longitude: 121.02 };
@@ -154,5 +154,30 @@ describe("disruption-aware route planner", () => {
       signal({ kind: "flood_zone", polygon: blockedPolygon, severity: "blocked" }),
     ]);
     expect(result.status).toBe("no_safe_route");
+  });
+
+  it("uses the special provider only for hard city events", async () => {
+    const primaryCounter = { value: 0 };
+    const specialCounter = { value: 0 };
+    const provider = (path: typeof directCar, counter: { value: number }): RouteProvider => ({
+      calculate: async () => {
+        counter.value += 1;
+        return { status: "ok", paths: [path] };
+      },
+    });
+    const plannerWithSpecialProvider = new RoutePlanner(
+      provider(directCar, primaryCounter),
+      provider(detourCar, specialCounter),
+    );
+
+    await plannerWithSpecialProvider.plan(request(), []);
+    expect(primaryCounter.value).toBe(1);
+    expect(specialCounter.value).toBe(0);
+
+    await plannerWithSpecialProvider.plan(request(), [
+      signal({ kind: "road_closure", polygon: blockedPolygon, severity: "blocked" }),
+    ]);
+    expect(primaryCounter.value).toBe(2);
+    expect(specialCounter.value).toBe(1);
   });
 });

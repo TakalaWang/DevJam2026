@@ -1,12 +1,12 @@
 import {
   RouteProviderResultSchema,
+  type RouteCalculationInput,
   type RoutePath,
   type RouteProfile,
   type RouteProviderResult,
   type RouteRequest,
   type RouteSignal,
 } from "../../contracts";
-import type { GraphHopperRouteInput } from "./graphhopper";
 import type { RouteProvider } from "./planner";
 
 export type FixtureRouteSet = {
@@ -32,7 +32,7 @@ export class FixtureGraphHopperProvider implements RouteProvider {
     this.routes = routes;
   }
 
-  calculate(input: GraphHopperRouteInput): Promise<RouteProviderResult> {
+  calculate(input: RouteCalculationInput): Promise<RouteProviderResult> {
     const request: RouteRequest = input.request;
     const routeSet = this.routes.find((candidate) => candidate.profile === input.profile);
     if (!routeSet || !request.profiles.includes(input.profile)) {

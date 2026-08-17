@@ -12,12 +12,22 @@ import type { ItineraryAgent } from "./agent";
 
 const taipeiStation = { label: "台北車站", coordinate: { latitude: 25.0478, longitude: 121.517 } };
 const venue = { label: "台北小巨蛋", coordinate: { latitude: 25.0515, longitude: 121.5493 } };
+const exhibition = {
+  label: "台北市立美術館",
+  coordinate: { latitude: 25.0716, longitude: 121.5246 },
+};
+const dinner = { label: "迪化街", coordinate: { latitude: 25.0566, longitude: 121.5103 } };
 
 export class FixtureItineraryAgent implements ItineraryAgent {
+  private readonly messages = new Map<string, string[]>();
+
   async interpret(
     itinerary: DayItinerarySnapshot,
     userMessage: string,
   ): Promise<ConversationAgentResult> {
+    const history = [...(this.messages.get(itinerary.id) ?? []), userMessage];
+    this.messages.set(itinerary.id, history);
+    const context = history.join("\n");
     const result = (output: ConversationAgentOutput): ConversationAgentResult =>
       ConversationAgentResultSchema.parse({
         output,
@@ -41,7 +51,7 @@ export class FixtureItineraryAgent implements ItineraryAgent {
         }),
       );
     }
-    if (userMessage.includes("演唱會")) {
+    if (context.includes("演唱會")) {
       return result(
         ConversationAgentOutputSchema.parse({
           message:
@@ -54,7 +64,7 @@ export class FixtureItineraryAgent implements ItineraryAgent {
             endAt: `${itinerary.date}T22:00:00+08:00`,
             origin: taipeiStation,
             returnHome: true,
-            profiles: ["car", "bike", "foot"],
+            profiles: ["car"],
             stops: [
               {
                 title: "城市咖啡",
@@ -82,6 +92,56 @@ export class FixtureItineraryAgent implements ItineraryAgent {
         }),
       );
     }
+    if (context.includes("看展") || context.includes("展覽") || context.includes("吃飯")) {
+      if (!context.includes("台北車站") && !itinerary.origin) {
+        return result(
+          ConversationAgentOutputSchema.parse({
+            message: "這個方向可以安排；我還需要知道你打算從哪裡出發，才能把交通段補完整。",
+            planningStatus: "needs_details",
+            command: {
+              action: "ask_clarification",
+              question: "請告訴我當天的出發位置，例如台北車站或住宿地點。",
+            },
+          }),
+        );
+      }
+      return result(
+        ConversationAgentOutputSchema.parse({
+          message:
+            "我先依照不要太早出門、下午看展、晚上吃飯的方向安排，並保留回到台北車站的交通時間。看起來行程沒問題了，等到行程當天按下開始行程就可以出發囉。",
+          planningStatus: "ready",
+          command: {
+            action: "propose_day",
+            date: itinerary.date,
+            startAt: `${itinerary.date}T12:00:00+08:00`,
+            endAt: `${itinerary.date}T20:30:00+08:00`,
+            origin: taipeiStation,
+            returnHome: true,
+            profiles: ["car"],
+            stops: [
+              {
+                title: "下午看展",
+                location: exhibition,
+                durationMinutes: 120,
+                constraint: "fixed",
+                timeWindow: {
+                  startAt: `${itinerary.date}T14:00:00+08:00`,
+                  endAt: `${itinerary.date}T16:00:00+08:00`,
+                },
+                evidenceIds: ["fixture-exhibition"],
+              },
+              {
+                title: "晚餐散步",
+                location: dinner,
+                durationMinutes: 90,
+                constraint: "flexible",
+                evidenceIds: ["fixture-dinner"],
+              },
+            ],
+          },
+        }),
+      );
+    }
     return result(
       ConversationAgentOutputSchema.parse({
         message: itinerary.stops.length
@@ -99,9 +159,15 @@ export class FixtureItineraryAgent implements ItineraryAgent {
       kind: "service_disruption",
       severity: "warning",
       title: "行程路線需要更新",
-      message: `目前狀況影響 ${input.affectedLegIds.length} 段路線，已重新計算替代方案。`,
+      message: input.changes
+        .map(
+          (change) =>
+            `${change.fromLabel} → ${change.toLabel}：${change.reason}；${change.tradeoffs.join("、")}。`,
+        )
+        .join(" "),
       affectedLegIds: input.affectedLegIds,
       affectedStopIds: input.affectedStopIds,
+      changes: input.changes,
       requiresConfirmation: false,
       evidenceIds: input.evidenceIds,
       createdAt: new Date().toISOString(),

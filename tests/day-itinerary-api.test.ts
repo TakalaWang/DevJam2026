@@ -72,6 +72,49 @@ async function postJson(url: string, body: object): Promise<Request> {
 }
 
 describe("day itinerary API", () => {
+  it("supports a blank day and a vague multi-turn planning request", async () => {
+    const orchestrator = service();
+    const created = DayItineraryResponseSchema.parse(
+      await (
+        await createPostHandler(orchestrator)(
+          await postJson("http://localhost/api/day-plans", {
+            userId: "vague-planner",
+            date: "2026-08-17",
+          }),
+        )
+      ).json(),
+    );
+    const id = created.itinerary.id;
+
+    const vague = DayItineraryResponseSchema.parse(
+      await (
+        await createMessageHandler(orchestrator)(
+          await postJson(`http://localhost/api/day-plans/${id}/messages`, {
+            message: "想在台北輕鬆走走，下午看展，晚上吃飯，不要排太滿。",
+          }),
+          { params: Promise.resolve({ id }) },
+        )
+      ).json(),
+    );
+    expect(vague.itinerary.status).toBe("discussing");
+    expect(vague.itinerary.stops).toHaveLength(0);
+
+    const planned = DayItineraryResponseSchema.parse(
+      await (
+        await createMessageHandler(orchestrator)(
+          await postJson(`http://localhost/api/day-plans/${id}/messages`, {
+            message: "從台北車站出發，照剛才的想法安排，晚上回到台北車站。",
+          }),
+          { params: Promise.resolve({ id }) },
+        )
+      ).json(),
+    );
+    expect(planned.itinerary.status).toBe("ready");
+    expect(planned.itinerary.stops).toHaveLength(2);
+    expect(planned.itinerary.legs).toHaveLength(3);
+    expect(planned.assistantMessage).toContain("看起來行程沒問題");
+  });
+
   it("creates a blank permanent user session", async () => {
     const response = await createPostHandler(service())(
       await postJson("http://localhost/api/day-plans", {
@@ -148,6 +191,15 @@ describe("day itinerary API", () => {
       ).json(),
     );
     expect(refreshed.notification?.message).toContain("路線");
+    expect(refreshed.notification?.message).toContain("淹水區");
+    expect(refreshed.notification?.changes[0]?.before.routeId).toBe("direct");
+    expect(
+      refreshed.notification?.changes.some(
+        (change) =>
+          change.after.routeId !== change.before.routeId ||
+          change.after.status !== change.before.status,
+      ),
+    ).toBe(true);
     const notifications = NotificationListResponseSchema.parse(
       await (
         await createNotificationsHandler(orchestrator)(

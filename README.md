@@ -1,6 +1,8 @@
 # Routecraft · 即時城市路線 App
 
-Routecraft 是只在本機執行的日行程 Web 工作台：左側保存行程紀錄，中間用 Gemini 討論，右側顯示從出門到回家的完整行程與每一段交通。開始行程後，Demo monitor 可以模擬淹水、封路、車站中斷與 YouBike 供給事件，透過 GraphHopper 重新計算受影響路段並發送通知。
+Routecraft 是只在本機執行的日行程 Web 工作台：左側保存行程紀錄，中間用 Gemini 討論，右側顯示從出門到回家的完整行程與每一段交通。開始行程後，Demo monitor 可以模擬淹水、封路、車站中斷與 YouBike 供給事件，透過 GraphHopper 重新計算受影響路段並發送包含原因、前後方案與差異的通知。
+
+目前的城市事件來源仍是 `/demo` 與 `/refresh` 的 typed MVP 入口，尚未進行 CWA、NCDR、TDX 的背景輪詢；正式接線與事件追蹤設計見 [`docs/plans/2026-08-17-multimodal-city-routing.md`](docs/plans/2026-08-17-multimodal-city-routing.md)。
 
 ## 啟動
 

@@ -2,9 +2,12 @@ import { randomUUID } from "node:crypto";
 import {
   RouteFindingSchema,
   RoutePlanSchema,
+  RouteCalculationInputSchema,
+  RouteProviderResultSchema,
   RouteRequestSchema,
   RouteSignalSchema,
   type RouteEvaluation,
+  type RouteCalculationInput,
   type RouteFinding,
   type RoutePath,
   type RoutePlan,
@@ -13,10 +16,19 @@ import {
   type RouteSignal,
 } from "../../contracts";
 import { routeIntersectsPolygon } from "./geometry";
-import type { GraphHopperRouteInput } from "./graphhopper";
 
 export interface RouteProvider {
-  calculate(input: GraphHopperRouteInput): Promise<RouteProviderResult>;
+  calculate(input: RouteCalculationInput): Promise<RouteProviderResult>;
+}
+
+function requiresSpecialRouting(signals: RouteSignal[]): boolean {
+  return signals.some(
+    (signal) =>
+      signal.kind === "road_closure" ||
+      (signal.kind === "flood_zone" && signal.severity === "blocked") ||
+      (signal.kind === "station_disruption" && signal.status !== "delayed") ||
+      (signal.kind === "low_lighting" && signal.severity === "blocked"),
+  );
 }
 
 function hardAreaFinding(path: RoutePath, signal: RouteSignal): RouteFinding | undefined {
@@ -178,39 +190,78 @@ function uniquePaths(paths: RoutePath[]): RoutePath[] {
   );
 }
 
+function samePath(left: RoutePath, right: RoutePath): boolean {
+  return JSON.stringify(left.coordinates) === JSON.stringify(right.coordinates);
+}
+
 function uniqueStrings(values: string[]): string[] {
   return [...new Set(values)];
 }
 
 export class RoutePlanner {
-  constructor(private readonly provider: RouteProvider) {}
+  constructor(
+    private readonly provider: RouteProvider,
+    private readonly specialProvider?: RouteProvider,
+  ) {}
 
-  async plan(rawRequest: RouteRequest, rawSignals: RouteSignal[]): Promise<RoutePlan> {
+  async plan(
+    rawRequest: RouteRequest,
+    rawSignals: RouteSignal[],
+    rawBaseline?: RoutePath,
+  ): Promise<RoutePlan> {
     const request = RouteRequestSchema.parse(rawRequest);
     const signals = rawSignals.map((signal) => RouteSignalSchema.parse(signal));
-    const baselineResults = await Promise.all(
-      request.profiles.map((profile) =>
-        this.provider.calculate({ request, profile, blockedSignals: [] }),
-      ),
-    );
+    const providedBaseline =
+      rawBaseline && request.profiles.includes(rawBaseline.profile) ? rawBaseline : undefined;
+    const baselineResults = providedBaseline
+      ? [RouteProviderResultSchema.parse({ status: "ok", paths: [providedBaseline] })]
+      : await Promise.all(
+          request.profiles.map((profile) =>
+            this.provider.calculate(
+              RouteCalculationInputSchema.parse({ request, profile, blockedSignals: [] }),
+            ),
+          ),
+        );
     const baselinePaths = uniquePaths(
       baselineResults.filter((result) => result.status === "ok").flatMap((result) => result.paths),
     );
-    if (!baselinePaths.length)
-      return this.unavailable(request, signals, "GraphHopper 沒有回傳基準路線");
+    if (!baselinePaths.length) {
+      return this.unavailable(
+        request,
+        signals,
+        baselineResults.find((result) => result.status === "unavailable")?.reason ??
+          "沒有回傳基準路線",
+      );
+    }
 
+    const candidateProvider =
+      this.specialProvider && requiresSpecialRouting(signals)
+        ? this.specialProvider
+        : this.provider;
     const candidateResults = signals.length
       ? await Promise.all(
           request.profiles.map((profile) =>
-            this.provider.calculate({ request, profile, blockedSignals: signals }),
+            candidateProvider.calculate(
+              RouteCalculationInputSchema.parse({ request, profile, blockedSignals: signals }),
+            ),
           ),
         )
       : baselineResults;
     const candidatePaths = uniquePaths(
       candidateResults.filter((result) => result.status === "ok").flatMap((result) => result.paths),
     );
-    if (!candidatePaths.length)
-      return this.unavailable(request, signals, "GraphHopper 沒有回傳候選路線");
+    if (!candidatePaths.length) {
+      const baselinePath = baselinePaths[0];
+      if (baselinePath && evaluate(request, baselinePath, signals).allowed) {
+        return this.successfulPlan(request, signals, baselinePath, [baselinePath], false);
+      }
+      return this.unavailable(
+        request,
+        signals,
+        candidateResults.find((result) => result.status === "unavailable")?.reason ??
+          "沒有回傳候選路線",
+      );
+    }
 
     const evaluations = uniquePaths([...candidatePaths, ...baselinePaths]).map((path) =>
       evaluate(request, path, signals),
@@ -253,10 +304,10 @@ export class RoutePlanner {
     if (!selected) return this.unavailable(request, signals, "沒有可選擇的候選路線");
     const alternatives = allowed.slice(1).map((evaluation) => evaluation.path);
     const baselineFindings = baseline ? evaluate(request, baseline, signals).findings : [];
-    const reason =
-      baseline && baseline.id !== selected.path.id
-        ? `已從 ${baseline.id} 改道；原因：${baselineFindings.map((finding) => finding.message).join("、") || "候選路線評分較低"}`
-        : "目前路線通過城市狀態檢查";
+    const rerouted = baseline ? !samePath(baseline, selected.path) : false;
+    const reason = rerouted
+      ? `已從 ${baseline?.id ?? "基準路線"} 改道；原因：${baselineFindings.map((finding) => finding.message).join("、") || "候選路線評分較低"}`
+      : "目前路線通過城市狀態檢查";
     return RoutePlanSchema.parse({
       id: `plan-${randomUUID()}`,
       status: "ok",
@@ -268,8 +319,32 @@ export class RoutePlanner {
       signals,
       generatedAt: new Date().toISOString(),
       evidenceIds,
-      rerouted: baseline ? baseline.id !== selected.path.id : false,
+      rerouted,
       reason,
+    });
+  }
+
+  private successfulPlan(
+    request: RouteRequest,
+    signals: RouteSignal[],
+    path: RoutePath,
+    paths: RoutePath[],
+    rerouted: boolean,
+  ): RoutePlan {
+    const evaluations = paths.map((candidate) => evaluate(request, candidate, signals));
+    return RoutePlanSchema.parse({
+      id: `plan-${randomUUID()}`,
+      status: "ok",
+      request,
+      baseline: path,
+      selected: path,
+      alternatives: [],
+      evaluations,
+      signals,
+      generatedAt: new Date().toISOString(),
+      evidenceIds: uniqueStrings(signals.map((signal) => signal.evidenceId)),
+      rerouted,
+      reason: "Google 基準路線通過城市狀態檢查",
     });
   }
 

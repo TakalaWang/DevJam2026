@@ -5,8 +5,10 @@ import {
   RouteRequestSchema,
   type DayItinerarySnapshot,
   type ItineraryStop,
+  ItineraryRouteChangeSchema,
   type RouteSignal,
   type TravelLeg,
+  type ItineraryRouteChange,
 } from "../../contracts";
 import { RoutePlanner } from "../routing/planner";
 
@@ -65,15 +67,22 @@ export class DayItineraryPlanner {
       const from = points[index - 1];
       const to = points[index];
       if (!from || !to) continue;
+      // ponytail: one preferred Google/GraphHopper profile per leg keeps the MVP within API quotas;
+      // add per-leg multimodal fallback when transit gateways are integrated.
+      const profile = snapshot.profiles[0] ?? "car";
+      const previousLeg = snapshot.legs.find(
+        (leg) => leg.fromStopId === from.id && leg.toStopId === to.id,
+      );
       const routePlan = await this.routePlanner.plan(
         RouteRequestSchema.parse({
           origin: from.point,
           destination: to.point,
-          profiles: snapshot.profiles,
+          profiles: [profile],
           maxExtraMinutes: 20,
           bikeStations: [],
         }),
         signals,
+        signals.length && previousLeg?.route ? previousLeg.route : undefined,
       );
       if (routePlan.status === "ok") {
         legs.push(
@@ -140,5 +149,66 @@ export class DayItineraryPlanner {
     return snapshot.legs
       .filter((leg) => legIds.includes(leg.id) && leg.status === "blocked")
       .map((leg) => (leg.status === "blocked" ? leg.reason : "route_changed"));
+  }
+
+  static routeChanges(
+    before: DayItinerarySnapshot,
+    after: DayItinerarySnapshot,
+    legIds: string[],
+    signals: RouteSignal[],
+  ): ItineraryRouteChange[] {
+    const label = (snapshot: DayItinerarySnapshot, stopId: string): string => {
+      if (stopId === "origin" || stopId === "home") return snapshot.origin?.label ?? "出發地";
+      return snapshot.stops.find((stop) => stop.id === stopId)?.title ?? stopId;
+    };
+    const state = (leg: TravelLeg) => ({
+      status: leg.status,
+      ...(leg.route
+        ? {
+            provider: leg.route.provider,
+            profile: leg.route.profile,
+            routeId: leg.route.id,
+            durationSeconds: leg.route.durationSeconds,
+            distanceMeters: leg.route.distanceMeters,
+          }
+        : {}),
+      ...(leg.status === "blocked" ? { reason: leg.reason } : {}),
+    });
+    const signalReason = signals.map((signal) => `${signal.label}：${signal.summary}`).join("；");
+
+    return legIds.flatMap((legId) => {
+      const previous = before.legs.find((leg) => leg.id === legId);
+      const next = after.legs.find((leg) => leg.id === legId);
+      if (!previous || !next) return [];
+      const beforeDuration = previous.route?.durationSeconds ?? 0;
+      const afterDuration = next.route?.durationSeconds ?? 0;
+      const durationDelta = afterDuration - beforeDuration;
+      const tradeoffs = [
+        previous.route?.provider !== next.route?.provider
+          ? `路線服務由 ${previous.route?.provider ?? "原方案"} 改為 ${next.route?.provider ?? "不可用"}`
+          : undefined,
+        durationDelta > 0 ? `預估增加 ${Math.ceil(durationDelta / 60)} 分鐘` : undefined,
+        durationDelta < 0 ? `預估減少 ${Math.ceil(Math.abs(durationDelta) / 60)} 分鐘` : undefined,
+        next.status === "blocked" ? "目前沒有可驗證的替代路線" : undefined,
+      ].filter((value): value is string => Boolean(value));
+      return [
+        ItineraryRouteChangeSchema.parse({
+          legId,
+          fromStopId: previous.fromStopId,
+          toStopId: previous.toStopId,
+          fromLabel: label(before, previous.fromStopId),
+          toLabel: label(before, previous.toStopId),
+          before: state(previous),
+          after: state(next),
+          delta: {
+            durationSeconds: durationDelta,
+            distanceMeters:
+              (next.route?.distanceMeters ?? 0) - (previous.route?.distanceMeters ?? 0),
+          },
+          reason: signalReason || (next.status === "blocked" ? next.reason : "路線狀態變更"),
+          tradeoffs,
+        }),
+      ];
+    });
   }
 }

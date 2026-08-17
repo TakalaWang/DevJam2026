@@ -1,13 +1,14 @@
 import {
   CoordinateSchema,
+  RouteCalculationInputSchema,
   RoutePathSchema,
   RouteProviderResultSchema,
   RouteRequestSchema,
   RouteSignalSchema,
+  type RouteCalculationInput,
   type RoutePath,
   type RouteProfile,
   type RouteProviderResult,
-  type RouteRequest,
   type RouteSignal,
 } from "../../contracts";
 import { z } from "zod";
@@ -48,12 +49,6 @@ export const GraphHopperCustomModelSchema = z.object({
   priority: z.array(GraphHopperPrioritySchema),
 });
 export type GraphHopperCustomModel = z.infer<typeof GraphHopperCustomModelSchema>;
-
-export type GraphHopperRouteInput = {
-  request: RouteRequest;
-  profile: RouteProfile;
-  blockedSignals: RouteSignal[];
-};
 
 export type GraphHopperRouteProviderOptions = {
   baseUrl?: string;
@@ -126,7 +121,8 @@ export class GraphHopperRouteProvider {
     this.fetchImpl = options.fetchImpl ?? fetch;
   }
 
-  async calculate(input: GraphHopperRouteInput): Promise<RouteProviderResult> {
+  async calculate(rawInput: RouteCalculationInput): Promise<RouteProviderResult> {
+    const input = RouteCalculationInputSchema.parse(rawInput);
     const request = RouteRequestSchema.parse(input.request);
     const signals = input.blockedSignals.map((signal) => RouteSignalSchema.parse(signal));
     const url = new URL("route", `${this.baseUrl.replace(/\/$/, "")}/`);
@@ -154,7 +150,10 @@ export class GraphHopperRouteProvider {
       if (!response.ok) {
         return RouteProviderResultSchema.parse({
           status: "unavailable",
-          reason: `GraphHopper 回傳 ${response.status}`,
+          reason:
+            response.status === 429
+              ? "GraphHopper API 配額已達上限，請稍後再試"
+              : `GraphHopper 回傳 ${response.status}`,
         });
       }
       const data = GraphHopperResponseSchema.parse(await response.json());
