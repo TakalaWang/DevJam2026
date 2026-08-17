@@ -24,6 +24,7 @@ import { createItineraryAgent } from "../conversation/gemini";
 import { DayItineraryPlanner } from "./planner";
 import { ItineraryStore } from "./store";
 import { GoogleRoutesProvider } from "../routing/google";
+import { DemoRouteProvider } from "../routing/demo";
 import { RoutePlanner } from "../routing/planner";
 import { demoSignal } from "./demo";
 import { CityDataGateway } from "../city/gateway";
@@ -353,8 +354,7 @@ export class ItineraryOrchestrator {
       candidate.id === command.notificationId ? { ...candidate, readAt: now() } : candidate,
     );
     const status =
-      current.status === "update_pending" &&
-      !current.legs.some((leg) => leg.status === "blocked")
+      current.status === "update_pending" && !current.legs.some((leg) => leg.status === "blocked")
         ? "active"
         : current.status;
     return {
@@ -367,6 +367,12 @@ export class ItineraryOrchestrator {
 export const itineraryOrchestrator = new ItineraryOrchestrator(
   new ItineraryStore(),
   createItineraryAgent(),
-  new DayItineraryPlanner(new RoutePlanner(new GoogleRoutesProvider())),
+  new DayItineraryPlanner(
+    new RoutePlanner(
+      process.env.ROUTECRAFT_DEMO_MODE === "true"
+        ? new DemoRouteProvider()
+        : new GoogleRoutesProvider(),
+    ),
+  ),
   new CityDataGateway(),
 );

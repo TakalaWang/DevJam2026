@@ -1,11 +1,11 @@
 import { RouteSignalSchema, type DemoScenario, type RouteSignal } from "../../contracts";
 
-const taipeiPolygon = [
-  { latitude: 25.03, longitude: 121.5 },
-  { latitude: 25.03, longitude: 121.56 },
-  { latitude: 25.07, longitude: 121.56 },
-  { latitude: 25.07, longitude: 121.5 },
-  { latitude: 25.03, longitude: 121.5 },
+const demoEventPolygon = [
+  { latitude: 25.045, longitude: 121.525 },
+  { latitude: 25.045, longitude: 121.54 },
+  { latitude: 25.065, longitude: 121.54 },
+  { latitude: 25.065, longitude: 121.525 },
+  { latitude: 25.045, longitude: 121.525 },
 ];
 
 export function demoSignal(scenario: DemoScenario): RouteSignal {
@@ -23,7 +23,7 @@ export function demoSignal(scenario: DemoScenario): RouteSignal {
       label: "示範淹水區",
       summary: "目前路段積水，需重新評估可行路線。",
       severity: "blocked",
-      polygon: taipeiPolygon,
+      polygon: demoEventPolygon,
     });
   }
   if (scenario === "road_closure") {
@@ -33,7 +33,7 @@ export function demoSignal(scenario: DemoScenario): RouteSignal {
       label: "示範道路封閉",
       summary: "前方道路暫時封閉，禁止原路段通行。",
       severity: "blocked",
-      polygon: taipeiPolygon,
+      polygon: demoEventPolygon,
     });
   }
   if (scenario === "station_disruption") {
@@ -44,7 +44,7 @@ export function demoSignal(scenario: DemoScenario): RouteSignal {
       summary: "轉乘車站暫停服務，需重新安排交通工具。",
       stationId: "demo-station",
       status: "suspended",
-      polygon: taipeiPolygon,
+      polygon: demoEventPolygon,
     });
   }
   return RouteSignalSchema.parse({
