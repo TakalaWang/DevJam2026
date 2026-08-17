@@ -20,8 +20,8 @@ pnpm dev
 - `GOOGLE_ROUTES_BASE_URL`：預設 `https://routes.googleapis.com/directions/v2:computeRoutes`。
 - `TDX_CLIENT_ID`／`TDX_CLIENT_SECRET`：TDX 交通、路況、YouBike、捷運／公車／臺鐵／高鐵異動。
 - `CWA_API_KEY`：中央氣象署天氣警特報。
-- `NCDR_API_KEY`：NCDR 災害示警 API。
-- `TAIPEI_METRO_API_KEY`／`TAIPEI_METRO_CROWDING_URL`：臺北捷運車站／車廂擁擠度會員 API。
+- `NCDR_API_KEY`：可選的 NCDR 災害示警 API；目前未設定時不啟用任何替代災防來源。
+- `TAIPEI_METRO_API_KEY`／`TAIPEI_METRO_CROWDING_URL`：可選的臺北捷運擁擠度會員 API；未設定時仍使用 TDX 捷運服務異動，不假造即時擁擠度。
 - `ROUTECRAFT_DB_PATH`：SQLite snapshot 路徑。
 
 ## 一日行程 API
@@ -92,7 +92,7 @@ Content-Type: application/json
 { "signals": [] }
 ```
 
-正式城市資料可使用 live refresh endpoint；它會同時查詢 TDX、CWA、NCDR 與已設定的臺北捷運擁擠 API，再把通過 Zod mapper 的交通壅塞、道路事件、YouBike 供給、運輸異常、天氣與災害訊號送進同一個行程重算流程：
+正式城市資料可使用 live refresh endpoint；它會查詢已設定的 TDX 與 CWA，並將 NCDR／臺北捷運擁擠 API 視為可選 feed。未設定的 feed 只回傳 typed `unavailable`，不會由其他來源補造災害或即時擁擠狀態：
 
 ```http
 POST /api/day-plans/:id/refresh/live
@@ -115,4 +115,4 @@ pnpm run lint
 pnpm run build
 ```
 
-測試包含 Google Routes route fixture、Google waypoint detour、TDX／CWA／NCDR／臺北捷運 typed gateway、完整回家路段、行程歷史刪除，以及「指定日期 → Gemini 對話 → ready → 開始 → Demo 城市事件 → 通知 → 完成」的一日行程 e2e。
+測試包含 Google Routes route fixture、Google waypoint detour、TDX／CWA typed gateway、可選 NCDR／臺北捷運 feed 的 unavailable 行為、完整回家路段、行程歷史刪除，以及「指定日期 → Gemini 對話 → ready → 開始 → Demo 城市事件 → 通知 → 完成」的一日行程 e2e。
