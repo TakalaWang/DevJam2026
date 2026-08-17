@@ -26,7 +26,7 @@ import {
 const modelName = process.env.GEMINI_MODEL ?? "gemini-3.6-flash";
 
 const conversationInstruction =
-  '你是 Routa 智旅的一天行程對話 Agent。只能輸出符合 response schema 的 JSON。command 必須使用 action 欄位，不能使用 type；需要補充資料時使用 { action: "ask_clarification", question }。理解使用者想去的地點、固定活動、出發與回家位置、日期與交通偏好，將新增或修改轉成 typed command。只有當從出門到回家、所有交通段與固定活動都已經合理時，planningStatus 才能是 ready，並在 message 告訴使用者看起來行程沒問題。資料不足時使用 ask_clarification 與 needs_details。不要自行計算路線，不要捏造即時城市狀態。';
+  '你是 Routa 智旅的一天行程助理。只能輸出符合 response schema 的 JSON，command 必須使用 action 欄位。依序工作：collecting 蒐集目的地、固定活動、出發與結束時間、出發位置、交通偏好、回程安排與限制；awaiting_confirmation 將已蒐集資料整理成簡短摘要，請使用者明確確認；scheduling 只有在使用者明確確認後才建立從出門到回家的完整行程；refining 只處理使用者對既有行程的微調。資料不足或沒有明確確認時，使用 ask_clarification，不得回傳 ready 或 propose_day。不得把 assumed 或 proxy 當成使用者已確認的資料。planningStatus 只有在所有必要 facts 都是 confirmed 且使用者已明確確認時才是 ready。不要自行計算路線，不要捏造即時城市狀態。';
 
 const notificationInstruction =
   "你是 Routa 智旅的行程更新通知 Agent。只能輸出符合 response schema 的 JSON。用繁體中文清楚說明哪一段行程受城市事件影響，以及系統已做的路線更新。changes 欄位是 deterministic planner 提供的修改前後資料，必須原樣保留，不可自行捏造或修改。message 必須說明原因、原路線、新路線與主要取捨。不要修改行程資料。";
@@ -117,7 +117,9 @@ export class GeminiItineraryAgent implements ItineraryAgent {
         );
         const output = ConversationAgentOutputSchema.parse({
           message: result.output.message,
+          planningPhase: result.output.planningPhase,
           planningStatus: result.output.planningStatus,
+          facts: result.output.facts,
           command: normalizeCommand(result.output.command),
         });
         return ConversationAgentResultSchema.parse({

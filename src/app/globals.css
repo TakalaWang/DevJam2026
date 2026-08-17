@@ -2863,3 +2863,265 @@ body,
     monospace;
   line-height: 1.5;
 }
+
+/* Live route state: the active plan should read like a trip in progress. */
+.navigation-status {
+  display: grid;
+  gap: 11px;
+  margin: 0 0 15px;
+  padding: 14px 14px 12px;
+  border: 1px solid #a9d5ca;
+  border-radius: 15px;
+  background: #effaf5;
+  box-shadow: 0 8px 20px rgba(47, 143, 139, 0.1);
+}
+
+.navigation-heading,
+.navigation-details {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.navigation-heading > div {
+  min-width: 0;
+}
+
+.navigation-live {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #287875;
+  font:
+    500 9px "DM Mono",
+    monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.navigation-live .status-dot {
+  animation: navigation-pulse 1.5s ease-in-out infinite;
+}
+
+.navigation-heading strong {
+  display: block;
+  margin-top: 5px;
+  overflow: hidden;
+  color: #234f4e;
+  font-size: 14px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.navigation-mode {
+  flex: 0 0 auto;
+  padding: 5px 7px;
+  border-radius: 999px;
+  color: #287875;
+  background: #d9f0e8;
+  font:
+    9px "DM Mono",
+    monospace;
+}
+
+.navigation-track {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 20px;
+}
+
+.navigation-track-start,
+.navigation-track-end {
+  z-index: 1;
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border: 2px solid #4da996;
+  border-radius: 50%;
+  background: #effaf5;
+}
+
+.navigation-track-end {
+  border-color: #db7657;
+}
+
+.navigation-track-line {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: #c3e1d8;
+}
+
+.navigation-track-progress {
+  display: block;
+  width: 42%;
+  height: 100%;
+  border-radius: inherit;
+  background: #2f8f8b;
+  animation: navigation-progress 5.5s ease-in-out infinite;
+}
+
+.navigation-traveler {
+  position: absolute;
+  top: 1px;
+  left: 15%;
+  z-index: 2;
+  width: 17px;
+  height: 17px;
+  border: 3px solid #ffffff;
+  border-radius: 50% 50% 50% 2px;
+  background: #db7657;
+  box-shadow: 0 3px 8px rgba(133, 72, 56, 0.22);
+  transform: rotate(-45deg);
+  animation: navigation-travel 5.5s linear infinite;
+}
+
+.navigation-traveler::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #ffffff;
+}
+
+.navigation-details {
+  color: #71878a;
+  font:
+    9px "DM Mono",
+    monospace;
+}
+
+.navigation-details strong {
+  color: #287875;
+  font-weight: 500;
+}
+
+.map-navigation-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border: 1px solid rgba(172, 211, 201, 0.9);
+  border-radius: 9px;
+  color: #287875;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 4px 12px rgba(38, 91, 82, 0.1);
+  font:
+    500 9px "DM Mono",
+    monospace;
+  letter-spacing: 0.06em;
+}
+
+.route-map.is-navigating .map-route {
+  stroke: #2f8f8b;
+  stroke-width: 6;
+}
+
+.map-traveler {
+  fill: #db7657;
+  stroke: #ffffff;
+  stroke-width: 2;
+  filter: drop-shadow(0 3px 3px rgba(91, 65, 55, 0.28));
+}
+
+.map-traveler-halo {
+  fill: rgba(219, 118, 87, 0.2);
+  stroke: none;
+  animation: map-traveler-pulse 1.4s ease-in-out infinite;
+}
+
+.map-traveler-dot {
+  fill: #db7657;
+}
+
+.map-traveler path {
+  fill: #ffffff;
+  stroke: none;
+}
+
+.timeline-row.current {
+  margin-inline: -8px;
+  padding: 7px 8px;
+  border-radius: 10px;
+  background: #effaf5;
+}
+
+.timeline-row.current .timeline-copy strong {
+  color: #287875;
+}
+
+.timeline-row.current .timeline-dot {
+  background: #2f8f8b;
+  box-shadow: 0 0 0 4px rgba(47, 143, 139, 0.12);
+}
+
+.leg-line.current {
+  color: #287875;
+  border-left-color: #69aaa6;
+  background: linear-gradient(90deg, rgba(239, 250, 245, 0.9), transparent);
+}
+
+.leg-line.current strong {
+  color: #287875;
+}
+
+@keyframes navigation-pulse {
+  50% {
+    opacity: 0.35;
+    box-shadow: 0 0 0 5px rgba(47, 143, 139, 0.1);
+  }
+}
+
+@keyframes navigation-progress {
+  0%,
+  100% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(140%);
+  }
+}
+
+@keyframes navigation-travel {
+  0%,
+  100% {
+    left: 15%;
+  }
+  50% {
+    left: 79%;
+  }
+}
+
+@keyframes map-traveler-pulse {
+  50% {
+    opacity: 0.35;
+    transform: scale(1.35);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .navigation-live .status-dot,
+  .navigation-track-progress,
+  .navigation-traveler,
+  .map-traveler-halo {
+    animation: none;
+  }
+
+  .navigation-traveler {
+    left: 15%;
+  }
+}

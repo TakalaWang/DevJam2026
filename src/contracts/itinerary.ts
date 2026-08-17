@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { RoutePointSchema, RouteRequestSchema, RouteSignalSchema, RoutePathSchema } from "./route";
+import { EmptyPlanningFacts, PlanningFactsSchema, PlanningPhaseSchema } from "./planning";
 
 export const CalendarDateSchema = z
   .string()
@@ -140,6 +141,8 @@ export const DayItinerarySnapshotSchema = z
     status: DayItineraryStatusSchema,
     revision: z.number().int().nonnegative(),
     date: CalendarDateSchema,
+    planningPhase: PlanningPhaseSchema.default("collecting"),
+    planningFacts: PlanningFactsSchema.default(EmptyPlanningFacts),
     startAt: ItineraryTimestampSchema.optional(),
     endAt: ItineraryTimestampSchema.optional(),
     origin: RoutePointSchema.optional(),

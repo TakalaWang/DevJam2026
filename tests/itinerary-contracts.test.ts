@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   ConversationAgentOutputSchema,
   DayItinerarySnapshotSchema,
+  EmptyPlanningFacts,
   ItineraryCommandSchema,
   ItineraryNotificationSchema,
 } from "../src/contracts";
@@ -37,7 +38,9 @@ describe("day itinerary contracts", () => {
   it("parses agent output as message plus typed command", () => {
     const output = ConversationAgentOutputSchema.parse({
       message: "我先安排演唱會，再安排交通與晚餐。",
+      planningPhase: "collecting",
       planningStatus: "needs_details",
+      facts: EmptyPlanningFacts,
       command: { action: "start_navigation" },
     });
     expect(output.command.action).toBe("start_navigation");
