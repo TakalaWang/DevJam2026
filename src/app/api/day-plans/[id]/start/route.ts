@@ -16,7 +16,7 @@ export function createStartHandler(orchestrator: ItineraryOrchestrator) {
       return Response.json(ApiErrorResponseSchema.parse({ error: "找不到一天行程 session" }), {
         status: 404,
       });
-    const result = await orchestrator.sendMessage(id, "開始行程");
+    const result = await orchestrator.startNavigation(id);
     return Response.json(DayItineraryResponseSchema.parse(result), {
       status: result.lastRun.status === "failed" ? 503 : 200,
     });

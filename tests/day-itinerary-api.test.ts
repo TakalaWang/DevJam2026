@@ -40,10 +40,20 @@ const direct = {
 const transit = { ...direct, id: "transit", profile: "transit" as const };
 const today = todayInTaipei();
 
-function service() {
+class AgentThatRejectsStart extends FixtureItineraryAgent {
+  override async interpret(
+    itinerary: Parameters<FixtureItineraryAgent["interpret"]>[0],
+    userMessage: string,
+  ) {
+    if (userMessage === "開始行程") throw new Error("開始行程不應交給對話 Agent");
+    return super.interpret(itinerary, userMessage);
+  }
+}
+
+function service(agent: FixtureItineraryAgent = new FixtureItineraryAgent()) {
   return new ItineraryOrchestrator(
     new ItineraryStore(":memory:"),
-    new FixtureItineraryAgent(),
+    agent,
     new DayItineraryPlanner(
       new RoutePlanner(
         new FixtureGoogleRoutesProvider([
@@ -255,6 +265,25 @@ describe("day itinerary API", () => {
       ).json(),
     );
     expect(notifications.notifications).toHaveLength(1);
+  });
+
+  it("starts multiple same-day ready plans without asking the agent to interpret start", async () => {
+    const orchestrator = service(new AgentThatRejectsStart());
+    const first = orchestrator.createSession("same-day-user", today);
+    const second = orchestrator.createSession("same-day-user", today);
+    await planConcert(orchestrator, first.id);
+    await planConcert(orchestrator, second.id);
+
+    for (const id of [first.id, second.id]) {
+      const response = await createStartHandler(orchestrator)(
+        new Request(`http://localhost/api/day-plans/${id}/start`),
+        { params: Promise.resolve({ id }) },
+      );
+      expect(response.status).toBe(200);
+      expect(DayItineraryResponseSchema.parse(await response.json()).itinerary.status).toBe(
+        "active",
+      );
+    }
   });
 
   it("lists, restores, demos, completes, and deletes a local day plan", async () => {

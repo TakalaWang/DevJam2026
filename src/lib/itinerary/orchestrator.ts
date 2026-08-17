@@ -159,6 +159,41 @@ export class ItineraryOrchestrator {
     }
   }
 
+  async startNavigation(sessionId: string): Promise<ItineraryOperationResult> {
+    const current = this.store.getSession(sessionId);
+    if (!current) throw new Error("找不到一天行程 session");
+    const run = this.store.createRun(sessionId, "開始行程");
+    this.store.saveRun({ ...run, status: "running" });
+    try {
+      const itinerary = this.store.saveSession(this.startNavigationSnapshot(current));
+      const output = ConversationAgentOutputSchema.parse({
+        message: "行程導航已開始，我會持續留意目前路線與城市狀況。",
+        planningPhase: "refining",
+        planningStatus: "ready",
+        facts: current.planningFacts,
+        command: { action: "start_navigation" },
+      });
+      const completed = this.store.saveRun({
+        ...run,
+        status: "succeeded",
+        output,
+        completedAt: now(),
+      });
+      return { itinerary, lastRun: completed, assistantMessage: output.message };
+    } catch (error) {
+      const failed = this.store.saveRun({
+        ...run,
+        status: "failed",
+        error: {
+          code: "workflow_invalid",
+          message: error instanceof Error ? error.message : "行程開始失敗",
+        },
+        completedAt: now(),
+      });
+      return { itinerary: current, lastRun: failed };
+    }
+  }
+
   async refresh(sessionId: string, rawSignals: RouteSignal[]): Promise<ItineraryOperationResult> {
     const current = this.store.getSession(sessionId);
     if (!current) throw new Error("找不到一天行程 session");
@@ -352,30 +387,8 @@ export class ItineraryOrchestrator {
       return { snapshot: await this.planner.rebuild(next, current.signals), changed: true };
     }
     if (command.action === "start_navigation") {
-      if (!current.stops.length) throw new Error("尚未建立今日行程");
-      if (current.status !== "ready") throw new Error("LLM 尚未確認行程完整");
-      if (!assessPlanningReadiness(current.planningFacts).ready) {
-        throw new Error("行程需求尚未經使用者確認");
-      }
-      if (current.legs.some((leg) => leg.status === "blocked")) {
-        throw new Error("仍有交通路段無法安全安排");
-      }
-      if (current.date !== todayInTaipei()) {
-        throw new Error(`請在 ${current.date} 當天開始行程`);
-      }
-      const firstStopId = current.stops[0]?.id;
-      const legs = current.legs.map((leg, index) => ({
-        ...leg,
-        status: leg.status === "blocked" ? "blocked" : index === 0 ? "active" : "planned",
-      }));
       return {
-        snapshot: DayItinerarySnapshotSchema.parse({
-          ...current,
-          status: "active",
-          currentStopId: firstStopId,
-          legs,
-          updatedAt: now(),
-        }),
+        snapshot: this.startNavigationSnapshot(current),
         changed: true,
       };
     }
@@ -411,6 +424,31 @@ export class ItineraryOrchestrator {
       snapshot: DayItinerarySnapshotSchema.parse({ ...current, status, notifications }),
       changed: true,
     };
+  }
+
+  private startNavigationSnapshot(current: DayItinerarySnapshot): DayItinerarySnapshot {
+    if (!current.stops.length) throw new Error("尚未建立今日行程");
+    if (current.status !== "ready") throw new Error("行程尚未準備完成");
+    if (!assessPlanningReadiness(current.planningFacts).ready) {
+      throw new Error("行程需求尚未經使用者確認");
+    }
+    if (current.legs.some((leg) => leg.status === "blocked")) {
+      throw new Error("仍有交通路段無法安全安排");
+    }
+    if (current.date !== todayInTaipei()) {
+      throw new Error(`請在 ${current.date} 當天開始行程`);
+    }
+    const legs = current.legs.map((leg, index) => ({
+      ...leg,
+      status: leg.status === "blocked" ? "blocked" : index === 0 ? "active" : "planned",
+    }));
+    return DayItinerarySnapshotSchema.parse({
+      ...current,
+      status: "active",
+      currentStopId: current.stops[0]?.id,
+      legs,
+      updatedAt: now(),
+    });
   }
 
   private resolvePlanningFacts(
