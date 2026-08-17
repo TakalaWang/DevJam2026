@@ -15,6 +15,7 @@ import {
 } from "../contracts";
 import { routaAssistantLabel, routaBrand, routaSubtitle } from "../lib/brand";
 import { composerKeyAction } from "../lib/composer";
+import { todayInTaipei } from "../lib/date";
 import { assessPlanningReadiness } from "../lib/itinerary/readiness";
 import {
   hasGoogleMapsKey,
@@ -38,7 +39,7 @@ const starter: ChatMessage = {
 };
 
 function todayDate(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayInTaipei();
 }
 
 function formatTime(value: string | undefined): string {
@@ -55,7 +56,13 @@ function formatDuration(seconds: number | undefined): string {
 }
 
 function modeLabel(profile: string | undefined): string {
-  return profile === "bike" ? "YouBike" : profile === "foot" ? "步行" : "開車";
+  return profile === "transit"
+    ? "大眾運輸"
+    : profile === "bike"
+      ? "YouBike"
+      : profile === "foot"
+        ? "步行"
+        : "開車";
 }
 
 function statusLabel(status: DayItinerarySnapshot["status"]): string {
@@ -173,16 +180,30 @@ function SvgRouteMap({
     const stops = snapshot.stops.map((stop) => stop.location);
     return snapshot.origin ? [snapshot.origin, ...stops] : stops;
   }, [snapshot.origin, snapshot.stops]);
-  const coordinates = snapshot.legs.flatMap((leg) => leg.route?.coordinates ?? []);
+  const navigation = activeNavigation(snapshot);
+  const activeCoordinates = navigation?.leg.route?.coordinates ?? [];
+  const coordinates = activeCoordinates.length
+    ? activeCoordinates
+    : snapshot.legs.flatMap((leg) => leg.route?.coordinates ?? []);
   const routePoints = coordinates.map((coordinate) => ({ label: "route", coordinate }));
+  const isNavigating = snapshot.status === "active" && activeCoordinates.length >= 2;
+  const navigationStart = activeCoordinates[0];
+  const navigationEnd = activeCoordinates.at(-1);
   const drawablePoints = routePoints.length ? routePoints : points;
+  const mapPoints =
+    isNavigating && navigationStart && navigationEnd
+      ? [
+          snapshot.currentLocation ?? { label: "目前位置", coordinate: navigationStart },
+          navigation?.destination?.location ?? { label: "下一站", coordinate: navigationEnd },
+        ]
+      : points;
+  const boundsPoints = isNavigating ? drawablePoints : points;
   const routePath = drawablePoints
     .map((point, index) => {
-      const [x, y] = mapPosition(point, points);
+      const [x, y] = mapPosition(point, boundsPoints);
       return `${index === 0 ? "M" : "L"} ${x} ${y}`;
     })
     .join(" ");
-  const isNavigating = snapshot.status === "active";
 
   return (
     <div
@@ -203,8 +224,8 @@ function SvgRouteMap({
             </animateMotion>
           </g>
         )}
-        {points.map((point, index) => {
-          const [x, y] = mapPosition(point, points);
+        {mapPoints.map((point, index) => {
+          const [x, y] = mapPosition(point, boundsPoints);
           return (
             <circle
               className={index === 0 ? "map-stop origin" : "map-stop"}
@@ -216,13 +237,10 @@ function SvgRouteMap({
           );
         })}
       </svg>
-      {isNavigating && (
-        <div className="map-navigation-badge">
-          <span className="status-dot" /> 導航中
-        </div>
-      )}
+      <NavigationOverlay snapshot={snapshot} />
       <div className="map-caption">
-        <span className="status-dot" /> {caption} · {snapshot.legs.length} 段交通
+        <span className="status-dot" /> {isNavigating ? "導航路線" : caption} ·{" "}
+        {snapshot.legs.length} 段交通
       </div>
     </div>
   );
@@ -233,7 +251,8 @@ function RouteMap({ snapshot }: { snapshot: DayItinerarySnapshot }) {
   const mapRef = useRef<GoogleMapInstance | null>(null);
   const overlaysRef = useRef<{
     markers: GoogleMarkerInstance[];
-    polyline?: GooglePolylineInstance;
+    polylines: GooglePolylineInstance[];
+    traveler?: GoogleMarkerInstance;
   } | null>(null);
   const [mapStatus, setMapStatus] = useState<"loading" | "ready" | "fallback">("loading");
   const [mapError, setMapError] = useState("");
@@ -245,9 +264,18 @@ function RouteMap({ snapshot }: { snapshot: DayItinerarySnapshot }) {
     () => snapshot.legs.flatMap((leg) => leg.route?.coordinates ?? []),
     [snapshot.legs],
   );
+  const activeRouteCoordinates = useMemo(() => {
+    const activeLeg =
+      snapshot.status === "active"
+        ? snapshot.legs.find((candidate) => candidate.status === "active")
+        : undefined;
+    return activeLeg?.route?.coordinates ?? [];
+  }, [snapshot.legs, snapshot.status]);
+  const isNavigating = snapshot.status === "active" && activeRouteCoordinates.length >= 2;
 
   useEffect(() => {
     let disposed = false;
+    let animationFrame: number | undefined;
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
     if (!hasGoogleMapsKey(apiKey) || !mapElementRef.current || points.length === 0) {
       setMapStatus("fallback");
@@ -261,15 +289,21 @@ function RouteMap({ snapshot }: { snapshot: DayItinerarySnapshot }) {
     void loadGoogleMaps(apiKey)
       .then((maps) => {
         if (disposed || !mapElementRef.current) return;
+        const firstCoordinate = activeRouteCoordinates[0] ?? points[0]?.coordinate;
+        if (!firstCoordinate) return;
 
-        overlaysRef.current?.polyline?.setMap(null);
+        overlaysRef.current?.polylines.forEach((polyline) => polyline.setMap(null));
         overlaysRef.current?.markers.forEach((marker) => marker.setMap(null));
+        overlaysRef.current?.traveler?.setMap(null);
 
         const map =
           mapRef.current ??
           new maps.Map(mapElementRef.current, {
-            center: { lat: points[0].coordinate.latitude, lng: points[0].coordinate.longitude },
-            zoom: 12,
+            center: {
+              lat: firstCoordinate.latitude,
+              lng: firstCoordinate.longitude,
+            },
+            zoom: isNavigating ? 15 : 12,
             mapTypeControl: false,
             streetViewControl: false,
             fullscreenControl: false,
@@ -281,22 +315,71 @@ function RouteMap({ snapshot }: { snapshot: DayItinerarySnapshot }) {
           lat: coordinate.latitude,
           lng: coordinate.longitude,
         }));
-        path.forEach((point) => bounds.extend(point));
-        points.forEach((point) =>
-          bounds.extend({ lat: point.coordinate.latitude, lng: point.coordinate.longitude }),
-        );
+        const activePath = activeRouteCoordinates.map<GoogleLatLngLiteral>((coordinate) => ({
+          lat: coordinate.latitude,
+          lng: coordinate.longitude,
+        }));
+        const focusPath = isNavigating ? activePath : path;
+        focusPath.forEach((point) => bounds.extend(point));
+        if (!isNavigating) {
+          points.forEach((point) =>
+            bounds.extend({ lat: point.coordinate.latitude, lng: point.coordinate.longitude }),
+          );
+        }
 
-        const polyline =
+        const polylines = [
           path.length >= 2
             ? new maps.Polyline({
                 map,
                 path,
                 geodesic: true,
-                strokeColor: "#dd775a",
-                strokeOpacity: 0.92,
-                strokeWeight: 5,
+                strokeColor: isNavigating ? "#b9d6d0" : "#db7657",
+                strokeOpacity: isNavigating ? 0.78 : 0.92,
+                strokeWeight: isNavigating ? 4 : 5,
               })
-            : undefined;
+            : undefined,
+          isNavigating && activePath.length >= 2
+            ? new maps.Polyline({
+                map,
+                path: activePath,
+                geodesic: true,
+                strokeColor: "#2f8f8b",
+                strokeOpacity: 1,
+                strokeWeight: 7,
+              })
+            : undefined,
+        ].filter((polyline): polyline is GooglePolylineInstance => Boolean(polyline));
+        const travelerPosition =
+          snapshot.currentLocation?.coordinate ?? activeRouteCoordinates[0] ?? points[0].coordinate;
+        const traveler = isNavigating
+          ? new maps.Marker({
+              map,
+              position: {
+                lat: travelerPosition.latitude,
+                lng: travelerPosition.longitude,
+              },
+              title: "目前位置",
+              icon: navigationMarkerIcon,
+              zIndex: 10,
+            })
+          : undefined;
+        const animateTraveler = (timestamp: number) => {
+          if (!traveler || disposed) return;
+          const progress = (timestamp % 5500) / 5500;
+          const position = interpolateCoordinate(activeRouteCoordinates, progress);
+          if (position) traveler.setPosition({ lat: position.latitude, lng: position.longitude });
+          animationFrame = window.requestAnimationFrame(animateTraveler);
+        };
+        if (traveler) {
+          if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+            traveler.setPosition({
+              lat: travelerPosition.latitude,
+              lng: travelerPosition.longitude,
+            });
+          } else {
+            animationFrame = window.requestAnimationFrame(animateTraveler);
+          }
+        }
         const markers = points.map(
           (point) =>
             new maps.Marker({
@@ -305,9 +388,9 @@ function RouteMap({ snapshot }: { snapshot: DayItinerarySnapshot }) {
               title: point.label,
             }),
         );
-        map.fitBounds(bounds, 44);
+        map.fitBounds(bounds, isNavigating ? 64 : 44);
         mapRef.current = map;
-        overlaysRef.current = { markers, ...(polyline ? { polyline } : {}) };
+        overlaysRef.current = { markers, polylines, ...(traveler ? { traveler } : {}) };
         setMapStatus("ready");
       })
       .catch((error: unknown) => {
@@ -318,8 +401,9 @@ function RouteMap({ snapshot }: { snapshot: DayItinerarySnapshot }) {
 
     return () => {
       disposed = true;
+      if (animationFrame !== undefined) window.cancelAnimationFrame(animationFrame);
     };
-  }, [points, routeCoordinates]);
+  }, [activeRouteCoordinates, isNavigating, points, routeCoordinates, snapshot.currentLocation]);
 
   if (mapStatus === "fallback") {
     return (
@@ -342,18 +426,40 @@ function RouteMap({ snapshot }: { snapshot: DayItinerarySnapshot }) {
     >
       <div className="google-map-canvas" ref={mapElementRef} />
       {mapStatus === "loading" && <div className="map-loading">正在載入 Google Maps…</div>}
-      {snapshot.status === "active" && (
-        <div className="map-navigation-badge">
-          <span className="status-dot" /> 導航中
-        </div>
-      )}
+      <NavigationOverlay snapshot={snapshot} />
       <div className="map-caption">
-        <span className="status-dot" /> Google Maps · {snapshot.legs.length} 段交通
+        <span className="status-dot" /> {snapshot.status === "active" ? "導航路線" : "Google Maps"}{" "}
+        · {snapshot.legs.length} 段交通
       </div>
     </div>
   );
 }
 
+/*
+ * Keep the active leg moving in the map itself. This is a visual navigation cue;
+ * a real GPS position can replace it through snapshot.currentLocation later.
+ */
+function interpolateCoordinate(
+  coordinates: RoutePoint["coordinate"][],
+  progress: number,
+): RoutePoint["coordinate"] | undefined {
+  if (!coordinates.length) return undefined;
+  if (coordinates.length === 1) return coordinates[0];
+  const scaled = Math.min(0.999999, Math.max(0, progress)) * (coordinates.length - 1);
+  const index = Math.floor(scaled);
+  const start = coordinates[index];
+  const end = coordinates[index + 1] ?? coordinates[index];
+  if (!start || !end) return undefined;
+  const ratio = scaled - index;
+  return {
+    latitude: start.latitude + (end.latitude - start.latitude) * ratio,
+    longitude: start.longitude + (end.longitude - start.longitude) * ratio,
+  };
+}
+
+const navigationMarkerIcon = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40"><circle cx="20" cy="20" r="15" fill="#2f8f8b" opacity=".24"/><path d="M20 5c-6.1 0-11 4.9-11 11 0 8.2 11 19 11 19s11-10.8 11-19c0-6.1-4.9-11-11-11Z" fill="#2f8f8b" stroke="#fff" stroke-width="2"/><path d="m17 14 10 2-8 7-2-9Z" fill="#fff"/></svg>',
+)}`;
 function LegLine({
   leg,
   active = false,
@@ -380,39 +486,21 @@ function activeNavigation(snapshot: DayItinerarySnapshot) {
   return { leg, destination };
 }
 
-function NavigationStatus({ snapshot }: { snapshot: DayItinerarySnapshot }) {
+function NavigationOverlay({ snapshot }: { snapshot: DayItinerarySnapshot }) {
   const navigation = activeNavigation(snapshot);
   if (!navigation) return null;
-  const from =
-    navigation.leg.fromStopId === "origin"
-      ? snapshot.origin?.label
-      : snapshot.stops.find((stop) => stop.id === navigation.leg.fromStopId)?.title;
 
   return (
-    <section className="navigation-status" aria-label="目前導航狀態">
-      <div className="navigation-heading">
-        <div>
-          <span className="navigation-live">
-            <span className="status-dot" /> 正在導航
-          </span>
-          <strong>前往 {navigation.destination?.title ?? "下一站"}</strong>
-        </div>
-        <span className="navigation-mode">{modeLabel(navigation.leg.route?.profile)}</span>
-      </div>
-      <div className="navigation-track" aria-hidden="true">
-        <span className="navigation-track-start" />
-        <span className="navigation-track-line">
-          <span className="navigation-track-progress" />
-        </span>
-        <span className="navigation-traveler" />
-        <span className="navigation-track-end" />
-      </div>
-      <div className="navigation-details">
-        <span>{from ?? "目前位置"}</span>
-        <strong>約 {formatDuration(navigation.leg.route?.durationSeconds)}</strong>
-        <span>{navigation.destination?.location.label ?? "下一站"}</span>
-      </div>
-    </section>
+    <div className="map-navigation-badge" aria-label="目前導航狀態">
+      <span className="map-navigation-arrow" aria-hidden="true" />
+      <span>
+        <strong>前往 {navigation.destination?.title ?? "下一站"}</strong>
+        <small>
+          {modeLabel(navigation.leg.route?.profile)} · 約{" "}
+          {formatDuration(navigation.leg.route?.durationSeconds)}
+        </small>
+      </span>
+    </div>
   );
 }
 
@@ -887,7 +975,6 @@ export default function Page() {
                   </span>
                 </div>
               )}
-              <NavigationStatus snapshot={itinerary} />
               <RouteMap key={`${itinerary.id}-${itinerary.revision}`} snapshot={itinerary} />
               <StopTimeline snapshot={itinerary} />
               {readyToStart && blockedLegCount > 0 && (

@@ -63,6 +63,7 @@ export class DayItineraryPlanner {
       ...(snapshot.returnHome ? [{ id: "home", point: snapshot.origin }] : []),
     ];
     const legs: TravelLeg[] = [];
+    let departureAt = snapshot.startAt ? Date.parse(snapshot.startAt) : undefined;
     for (let index = 1; index < points.length; index += 1) {
       const from = points[index - 1];
       const to = points[index];
@@ -78,6 +79,9 @@ export class DayItineraryPlanner {
           origin: from.point,
           destination: to.point,
           profiles,
+          ...(departureAt !== undefined
+            ? { departureAt: new Date(departureAt).toISOString() }
+            : {}),
           maxExtraMinutes: 20,
           bikeStations: [],
         }),
@@ -85,6 +89,11 @@ export class DayItineraryPlanner {
         signals.length && previousLeg?.route ? previousLeg.route : undefined,
       );
       if (routePlan.status === "ok") {
+        if (departureAt !== undefined) {
+          departureAt += routePlan.selected.durationSeconds * 1000;
+          const arrivedStop = snapshot.stops.find((stop) => stop.id === to.id);
+          if (arrivedStop) departureAt += arrivedStop.durationMinutes * 60_000;
+        }
         legs.push(
           TravelLegSchema.parse({
             id: legId(from.id, to.id),

@@ -11,7 +11,9 @@ import {
   type ConversationRun,
   type DayItinerarySnapshot,
   type ItineraryNotification,
+  type PlanningFacts,
   type RouteSignal,
+  type RouteProfile,
   type CityFeedQuery,
   type CityFeedSnapshot,
 } from "../../contracts";
@@ -28,6 +30,7 @@ import { DemoRouteProvider } from "../routing/demo";
 import { RoutePlanner } from "../routing/planner";
 import { demoSignal } from "./demo";
 import { CityDataGateway } from "../city/gateway";
+import { todayInTaipei } from "../date";
 import {
   assessPlanningReadiness,
   hasCollectedPlanningFacts,
@@ -54,6 +57,32 @@ function changedSnapshot(current: DayItinerarySnapshot, next: DayItinerarySnapsh
     JSON.stringify({ ...current, revision: 0, updatedAt: "" }) !==
     JSON.stringify({ ...next, revision: 0, updatedAt: "" })
   );
+}
+
+function profilesForTransport(
+  facts: PlanningFacts,
+  proposedProfiles: RouteProfile[],
+): RouteProfile[] {
+  switch (facts.transportPreference.value) {
+    case "public_transit":
+      return ["transit"];
+    case "bike":
+      return ["bike"];
+    case "walk":
+      return ["foot"];
+    case "car":
+      return ["car"];
+    case "mixed":
+    case "no_preference":
+    case undefined:
+      return proposedProfiles;
+  }
+}
+
+function explicitReturnHome(message: string): boolean | undefined {
+  if (/不回家|不用回家|不返回|不需要回/.test(message)) return false;
+  if (/回家|回到|返回|返抵|回程|回台/.test(message)) return true;
+  return undefined;
 }
 
 export class ItineraryOrchestrator {
@@ -264,8 +293,8 @@ export class ItineraryOrchestrator {
         startAt: command.startAt,
         endAt: command.endAt,
         origin: command.origin,
-        returnHome: command.returnHome,
-        profiles: command.profiles,
+        returnHome: facts.returnPlan.value?.returnHome ?? command.returnHome,
+        profiles: profilesForTransport(facts, command.profiles),
         stops: command.stops.map((stop) => ({ ...stop, id: stopId(), status: "planned" })),
         legs: [],
         signals: [],
@@ -331,7 +360,7 @@ export class ItineraryOrchestrator {
       if (current.legs.some((leg) => leg.status === "blocked")) {
         throw new Error("仍有交通路段無法安全安排");
       }
-      if (current.date !== new Date().toISOString().slice(0, 10)) {
+      if (current.date !== todayInTaipei()) {
         throw new Error(`請在 ${current.date} 當天開始行程`);
       }
       const firstStopId = current.stops[0]?.id;
@@ -396,7 +425,28 @@ export class ItineraryOrchestrator {
     ) {
       return PlanningFactsSchema.parse(current.planningFacts);
     }
-    const facts = PlanningFactsSchema.parse(output.facts);
+    const parsedFacts = PlanningFactsSchema.parse(output.facts);
+    const returnHome = explicitReturnHome(userMessage);
+    const returnHomeWithKnownOrigin =
+      returnHome === true && !parsedFacts.origin.value ? undefined : returnHome;
+    const facts =
+      returnHomeWithKnownOrigin === undefined
+        ? parsedFacts
+        : PlanningFactsSchema.parse({
+            ...parsedFacts,
+            returnPlan: {
+              status:
+                parsedFacts.returnPlan.status === "missing"
+                  ? "provided"
+                  : parsedFacts.returnPlan.status,
+              value: {
+                returnHome: returnHomeWithKnownOrigin,
+                ...(returnHomeWithKnownOrigin
+                  ? { location: parsedFacts.returnPlan.value?.location ?? parsedFacts.origin.value }
+                  : {}),
+              },
+            },
+          });
     if (current.planningFacts.confirmation === "pending" && hasExplicitConfirmation(userMessage)) {
       return PlanningFactsSchema.parse({
         ...facts,

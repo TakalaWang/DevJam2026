@@ -22,6 +22,7 @@ import { RoutePlanner } from "../src/lib/routing/planner";
 import { DayItineraryPlanner } from "../src/lib/itinerary/planner";
 import { ItineraryOrchestrator } from "../src/lib/itinerary/orchestrator";
 import { ItineraryStore } from "../src/lib/itinerary/store";
+import { todayInTaipei } from "../src/lib/date";
 
 const direct = {
   id: "direct",
@@ -36,6 +37,8 @@ const direct = {
   instructions: [],
   provider: "google" as const,
 };
+const transit = { ...direct, id: "transit", profile: "transit" as const };
+const today = todayInTaipei();
 
 function service() {
   return new ItineraryOrchestrator(
@@ -48,6 +51,22 @@ function service() {
             profile: "car",
             normal: [direct],
             rerouted: [{ ...direct, id: "detour", durationSeconds: 1200 }],
+          },
+          {
+            profile: "transit",
+            normal: [transit],
+            rerouted: [
+              {
+                ...transit,
+                id: "transit-detour",
+                coordinates: [
+                  { latitude: 25.0478, longitude: 121.517 },
+                  { latitude: 25.06, longitude: 121.53 },
+                  { latitude: 25.0515, longitude: 121.5493 },
+                ],
+                durationSeconds: 1200,
+              },
+            ],
           },
           {
             profile: "bike",
@@ -98,7 +117,7 @@ describe("day itinerary API", () => {
         await createPostHandler(orchestrator)(
           await postJson("http://localhost/api/day-plans", {
             userId: "vague-planner",
-            date: "2026-08-17",
+            date: today,
           }),
         )
       ).json(),
@@ -140,7 +159,7 @@ describe("day itinerary API", () => {
     const response = await createPostHandler(service())(
       await postJson("http://localhost/api/day-plans", {
         userId: "user-1",
-        date: "2026-08-17",
+        date: today,
       }),
     );
     expect(response.status).toBe(200);
@@ -155,7 +174,7 @@ describe("day itinerary API", () => {
         await createPostHandler(orchestrator)(
           await postJson("http://localhost/api/day-plans", {
             userId: "user-1",
-            date: "2026-08-17",
+            date: today,
           }),
         )
       ).json(),
@@ -217,7 +236,7 @@ describe("day itinerary API", () => {
     );
     expect(refreshed.notification?.message).toContain("路線");
     expect(refreshed.notification?.message).toContain("淹水區");
-    expect(refreshed.notification?.changes[0]?.before.routeId).toBe("direct");
+    expect(refreshed.notification?.changes[0]?.before.routeId).toBe("transit");
     expect(
       refreshed.notification?.changes.some(
         (change) =>
@@ -245,7 +264,7 @@ describe("day itinerary API", () => {
         await createPostHandler(orchestrator)(
           await postJson("http://localhost/api/day-plans", {
             userId: "local-demo-user",
-            date: "2026-08-17",
+            date: today,
           }),
         )
       ).json(),

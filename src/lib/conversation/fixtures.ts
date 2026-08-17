@@ -135,7 +135,7 @@ export class FixtureItineraryAgent implements ItineraryAgent {
             endAt: `${itinerary.date}T22:00:00+08:00`,
             origin: taipeiStation,
             returnHome: true,
-            profiles: ["car"],
+            profiles: ["transit"],
             stops: [
               {
                 title: "城市咖啡",
@@ -195,7 +195,7 @@ export class FixtureItineraryAgent implements ItineraryAgent {
                 endAt: `${itinerary.date}T20:30:00+08:00`,
                 origin: taipeiStation,
                 returnHome: true,
-                profiles: ["car"],
+                profiles: ["transit"],
                 stops: [
                   {
                     title: "下午看展",
@@ -243,12 +243,14 @@ export class FixtureItineraryAgent implements ItineraryAgent {
       kind: "service_disruption",
       severity: "warning",
       title: "行程路線需要更新",
-      message: input.changes
-        .map(
-          (change) =>
-            `${change.fromLabel} → ${change.toLabel}：${change.reason}；${change.tradeoffs.join("、")}。`,
-        )
-        .join(" "),
+      message:
+        "路線更新：" +
+        input.changes
+          .map(
+            (change) =>
+              `${change.fromLabel} → ${change.toLabel}：${change.reason}；${change.tradeoffs.join("、")}。`,
+          )
+          .join(" "),
       affectedLegIds: input.affectedLegIds,
       affectedStopIds: input.affectedStopIds,
       changes: input.changes,

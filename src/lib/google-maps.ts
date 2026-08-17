@@ -10,6 +10,7 @@ export interface GooglePolylineInstance {
 
 export interface GoogleMarkerInstance {
   setMap(map: GoogleMapInstance | null): void;
+  setPosition(position: GoogleLatLngLiteral): void;
 }
 
 export interface GoogleLatLngBoundsInstance {
@@ -29,16 +30,15 @@ type GoogleMapsLibraryExports = {
   Map?: GoogleMapsNamespace["Map"];
   Polyline?: GoogleMapsNamespace["Polyline"];
   Marker?: GoogleMapsNamespace["Marker"];
-  AdvancedMarkerElement?: new (
-    options: Record<string, unknown>,
-  ) => { map?: GoogleMapInstance | null };
+  AdvancedMarkerElement?: new (options: Record<string, unknown>) => {
+    map?: GoogleMapInstance | null;
+    position?: GoogleLatLngLiteral;
+  };
   LatLngBounds?: GoogleMapsNamespace["LatLngBounds"];
 };
 
 type GoogleMapsRawNamespace = GoogleMapsLibraryExports & {
-  importLibrary?: (
-    libraryName: GoogleMapsLibraryName,
-  ) => Promise<GoogleMapsLibraryExports>;
+  importLibrary?: (libraryName: GoogleMapsLibraryName) => Promise<GoogleMapsLibraryExports>;
 };
 
 type GoogleMapsGlobal = {
@@ -78,7 +78,10 @@ async function hydrateGoogleMaps(rawMaps: GoogleMapsRawNamespace): Promise<Googl
     rawMaps.Marker ??
     (markerLibrary.AdvancedMarkerElement
       ? class AdvancedMarkerAdapter implements GoogleMarkerInstance {
-          private readonly marker: { map?: GoogleMapInstance | null };
+          private readonly marker: {
+            map?: GoogleMapInstance | null;
+            position?: GoogleLatLngLiteral;
+          };
 
           constructor(options: Record<string, unknown>) {
             this.marker = new markerLibrary.AdvancedMarkerElement!(options);
@@ -86,6 +89,10 @@ async function hydrateGoogleMaps(rawMaps: GoogleMapsRawNamespace): Promise<Googl
 
           setMap(map: GoogleMapInstance | null) {
             this.marker.map = map;
+          }
+
+          setPosition(position: GoogleLatLngLiteral) {
+            this.marker.position = position;
           }
         }
       : undefined);
@@ -115,7 +122,9 @@ export function loadGoogleMaps(apiKey: string): Promise<GoogleMapsNamespace> {
   if (googleMapsPromise) return googleMapsPromise;
 
   googleMapsPromise = new Promise<GoogleMapsNamespace>((resolve, reject) => {
-    const existing = document.getElementById("google-maps-javascript-api") as HTMLScriptElement | null;
+    const existing = document.getElementById(
+      "google-maps-javascript-api",
+    ) as HTMLScriptElement | null;
     const script = existing ?? document.createElement("script");
     let finished = false;
     const finish = () => {

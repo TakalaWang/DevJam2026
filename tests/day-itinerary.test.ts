@@ -20,6 +20,7 @@ import { DayItineraryPlanner } from "../src/lib/itinerary/planner";
 import { ItineraryOrchestrator } from "../src/lib/itinerary/orchestrator";
 import { ItineraryStore } from "../src/lib/itinerary/store";
 import { CityDataGateway } from "../src/lib/city/gateway";
+import { todayInTaipei } from "../src/lib/date";
 
 const direct = RoutePathSchema.parse({
   id: "direct",
@@ -43,6 +44,13 @@ const detour = RoutePathSchema.parse({
     { latitude: 25.0515, longitude: 121.5493 },
   ],
   durationSeconds: 1200,
+});
+const today = todayInTaipei();
+const transit = RoutePathSchema.parse({ ...direct, id: "transit", profile: "transit" });
+const transitDetour = RoutePathSchema.parse({
+  ...detour,
+  id: "transit-detour",
+  profile: "transit",
 });
 
 class ConfirmationFixtureItineraryAgent extends FixtureItineraryAgent {
@@ -104,6 +112,7 @@ function service(
   agent: FixtureItineraryAgent = new FixtureItineraryAgent(),
   provider: RouteProvider = new FixtureGoogleRoutesProvider([
     { profile: "car", normal: [direct], rerouted: [detour] },
+    { profile: "transit", normal: [transit], rerouted: [transitDetour] },
     { profile: "bike", normal: [direct], rerouted: [detour] },
     { profile: "foot", normal: [direct], rerouted: [detour] },
   ]),
@@ -132,7 +141,7 @@ async function planConcert(
 describe("day itinerary orchestration", () => {
   it("clarifies a vague request before filling a blank day", async () => {
     const orchestrator = service();
-    const itinerary = orchestrator.createSession("user-1", "2026-08-17");
+    const itinerary = orchestrator.createSession("user-1", today);
 
     const vague = await orchestrator.sendMessage(
       itinerary.id,
@@ -158,11 +167,12 @@ describe("day itinerary orchestration", () => {
 
   it("builds a concert day through conversation and starts navigation", async () => {
     const orchestrator = service();
-    const itinerary = orchestrator.createSession("user-1", "2026-08-17");
+    const itinerary = orchestrator.createSession("user-1", today);
     const proposed = await planConcert(orchestrator, itinerary);
     expect(proposed.itinerary.status).toBe("ready");
     expect(proposed.itinerary.stops).toHaveLength(2);
     expect(proposed.itinerary.legs).toHaveLength(3);
+    expect(proposed.itinerary.legs.every((leg) => leg.route?.profile === "transit")).toBe(true);
 
     const started = await orchestrator.sendMessage(itinerary.id, "開始行程");
     expect(started.itinerary.status).toBe("active");
@@ -171,7 +181,7 @@ describe("day itinerary orchestration", () => {
 
   it("refreshes active legs and stores an update notification", async () => {
     const orchestrator = service();
-    const itinerary = orchestrator.createSession("user-1", "2026-08-17");
+    const itinerary = orchestrator.createSession("user-1", today);
     await planConcert(orchestrator, itinerary);
     await orchestrator.sendMessage(itinerary.id, "開始行程");
     const refreshed = await orchestrator.refresh(itinerary.id, [
@@ -196,14 +206,14 @@ describe("day itinerary orchestration", () => {
     expect(refreshed.itinerary.notifications).toHaveLength(1);
     expect(refreshed.notification?.kind).toBe("service_disruption");
     expect(refreshed.notification?.message).toContain("淹水區");
-    expect(refreshed.notification?.changes[0]?.before.routeId).toBe("direct");
-    expect(refreshed.notification?.changes[0]?.after.routeId).toBe("detour");
+    expect(refreshed.notification?.changes[0]?.before.routeId).toBe("transit");
+    expect(refreshed.notification?.changes[0]?.after.routeId).toBe("transit-detour");
     expect(refreshed.notification?.changes[0]?.delta.durationSeconds).toBeGreaterThan(0);
   });
 
   it("resumes active navigation after acknowledging a safe route update", async () => {
     const orchestrator = service(new ConfirmationFixtureItineraryAgent());
-    const itinerary = orchestrator.createSession("user-1", "2026-08-17");
+    const itinerary = orchestrator.createSession("user-1", today);
     await planConcert(orchestrator, itinerary);
     await orchestrator.sendMessage(itinerary.id, "開始行程");
 
@@ -237,12 +247,13 @@ describe("day itinerary orchestration", () => {
     const provider = new CountingRouteProvider(
       new FixtureGoogleRoutesProvider([
         { profile: "car", normal: [direct], rerouted: [detour] },
+        { profile: "transit", normal: [transit], rerouted: [transitDetour] },
         { profile: "bike", normal: [direct], rerouted: [detour] },
         { profile: "foot", normal: [direct], rerouted: [detour] },
       ]),
     );
     const orchestrator = service(new FixtureItineraryAgent(), provider, new EmptyCityGateway());
-    const itinerary = orchestrator.createSession("user-1", "2026-08-17");
+    const itinerary = orchestrator.createSession("user-1", today);
     await planConcert(orchestrator, itinerary);
     await orchestrator.sendMessage(itinerary.id, "開始行程");
     const before = orchestrator.getSession(itinerary.id);
@@ -259,7 +270,7 @@ describe("day itinerary orchestration", () => {
 
   it("completes the whole day and marks stops and return leg complete", async () => {
     const orchestrator = service();
-    const itinerary = orchestrator.createSession("user-1", "2026-08-17");
+    const itinerary = orchestrator.createSession("user-1", today);
     await planConcert(orchestrator, itinerary);
     await orchestrator.sendMessage(itinerary.id, "開始行程");
     const completed = await orchestrator.sendMessage(itinerary.id, "完成行程");
@@ -272,10 +283,7 @@ describe("day itinerary orchestration", () => {
     const scenarios = ["flood", "road_closure", "station_disruption", "bike_unavailable"] as const;
     for (const scenario of scenarios) {
       const orchestrator = service(new FixtureItineraryAgent(), new DemoRouteProvider());
-      const itinerary = orchestrator.createSession(
-        "demo-user",
-        new Date().toISOString().slice(0, 10),
-      );
+      const itinerary = orchestrator.createSession("demo-user", today);
       await planConcert(orchestrator, itinerary);
       await orchestrator.sendMessage(itinerary.id, "開始行程");
 

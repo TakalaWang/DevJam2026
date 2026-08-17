@@ -14,7 +14,7 @@ export const RoutePointSchema = z.object({
 });
 export type RoutePoint = z.infer<typeof RoutePointSchema>;
 
-export const RouteProfileSchema = z.enum(["car", "bike", "foot"]);
+export const RouteProfileSchema = z.enum(["car", "transit", "bike", "foot"]);
 export type RouteProfile = z.infer<typeof RouteProfileSchema>;
 
 export const BikeStationRequirementSchema = z.object({

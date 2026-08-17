@@ -15,7 +15,11 @@ import {
 import { z } from "zod";
 import { createCombinedDetourWaypointPairs, createDetourWaypointPairs } from "./geometry";
 
-const GoogleTravelModeSchema = z.enum(["DRIVE", "BICYCLE", "WALK"]);
+const GoogleTravelModeSchema = z.enum(["DRIVE", "TRANSIT", "BICYCLE", "WALK"]);
+const GoogleTransitPreferencesSchema = z.object({
+  allowedTravelModes: z.array(z.enum(["BUS", "SUBWAY", "TRAIN", "LIGHT_RAIL", "RAIL"])).min(1),
+  routingPreference: z.enum(["LESS_WALKING", "FEWER_TRANSFERS"]).optional(),
+});
 const GoogleWaypointSchema = z.object({
   location: z.object({ latLng: CoordinateSchema }),
   via: z.boolean().optional(),
@@ -37,6 +41,7 @@ const GoogleComputeRoutesRequestSchema = z.object({
   routingPreference: z.enum(["TRAFFIC_AWARE", "TRAFFIC_AWARE_OPTIMAL"]).optional(),
   computeAlternativeRoutes: z.boolean().optional(),
   routeModifiers: GoogleRouteModifiersSchema.optional(),
+  transitPreferences: GoogleTransitPreferencesSchema.optional(),
   languageCode: z.string().min(1),
   units: z.literal("METRIC"),
   departureTime: z.string().datetime({ offset: true }).optional(),
@@ -74,7 +79,13 @@ export type GoogleRoutesProviderOptions = {
 };
 
 function travelMode(profile: RouteProfile): z.infer<typeof GoogleTravelModeSchema> {
-  return profile === "car" ? "DRIVE" : profile === "bike" ? "BICYCLE" : "WALK";
+  return profile === "car"
+    ? "DRIVE"
+    : profile === "transit"
+      ? "TRANSIT"
+      : profile === "bike"
+        ? "BICYCLE"
+        : "WALK";
 }
 
 function isHardAreaSignal(signal: RouteSignal): boolean {
@@ -146,6 +157,8 @@ function variantsFor(
       routeModifiers: { avoidIndoor: true },
     });
   }
+
+  if (profile === "transit") return variants;
 
   const hardPolygons = signals
     .filter(isHardAreaSignal)
@@ -281,6 +294,14 @@ export class GoogleRoutesProvider {
       destination: { location: { latLng: request.destination.coordinate } },
       travelMode: travelMode(input.profile),
       ...(input.profile === "car" ? { routingPreference: "TRAFFIC_AWARE" } : {}),
+      ...(input.profile === "transit"
+        ? {
+            transitPreferences: {
+              allowedTravelModes: ["BUS", "SUBWAY", "TRAIN", "LIGHT_RAIL", "RAIL"],
+              routingPreference: "FEWER_TRANSFERS",
+            },
+          }
+        : {}),
       languageCode: "zh-TW",
       units: "METRIC",
       ...(request.departureAt ? { departureTime: request.departureAt } : {}),

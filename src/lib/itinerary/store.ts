@@ -63,7 +63,7 @@ export class ItineraryStore {
       status: "discussing",
       revision: 0,
       date,
-      profiles: ["car", "bike", "foot"],
+      profiles: ["car", "transit", "bike", "foot"],
       returnHome: true,
       stops: [],
       legs: [],

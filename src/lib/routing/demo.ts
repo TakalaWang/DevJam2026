@@ -16,6 +16,7 @@ import type { RouteProvider } from "./planner";
 
 const speedMetersPerSecond: Record<RouteProfile, number> = {
   car: 8,
+  transit: 5,
   bike: 4,
   foot: 1.4,
 };

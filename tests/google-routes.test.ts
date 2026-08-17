@@ -72,6 +72,50 @@ describe("Google Routes provider", () => {
     });
   });
 
+  it("maps public transit to Google's transit mode", async () => {
+    let body = "";
+    const provider = new GoogleRoutesProvider({
+      apiKey: "test-key",
+      fetchImpl: async (_input, init) => {
+        body = String(init?.body);
+        return new Response(
+          JSON.stringify({
+            routes: [
+              {
+                distanceMeters: 5000,
+                duration: "120s",
+                polyline: { encodedPolyline: "_sywC_nqdVo}@o}@" },
+                legs: [],
+              },
+            ],
+          }),
+          { status: 200 },
+        );
+      },
+    });
+
+    const result = await provider.calculate({
+      request: {
+        ...request,
+        profiles: ["transit"],
+        departureAt: "2026-08-18T13:00:00+08:00",
+      },
+      profile: "transit",
+      blockedSignals: [],
+    });
+
+    expect(result.status).toBe("ok");
+    expect(JSON.parse(body)).toMatchObject({
+      travelMode: "TRANSIT",
+      departureTime: "2026-08-18T13:00:00+08:00",
+      transitPreferences: {
+        allowedTravelModes: ["BUS", "SUBWAY", "TRAIN", "LIGHT_RAIL", "RAIL"],
+        routingPreference: "FEWER_TRANSFERS",
+      },
+    });
+    expect(JSON.parse(body).routingPreference).toBeUndefined();
+  });
+
   it("explains a 403 without exposing the API key", async () => {
     const provider = new GoogleRoutesProvider({
       apiKey: "secret-test-key",

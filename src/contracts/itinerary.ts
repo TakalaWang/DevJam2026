@@ -86,7 +86,7 @@ export type ItineraryCommand = z.infer<typeof ItineraryCommandSchema>;
 const ItineraryLegStateSchema = z.object({
   status: z.enum(["planned", "active", "completed", "blocked"]),
   provider: z.literal("google").optional(),
-  profile: z.enum(["car", "bike", "foot"]).optional(),
+  profile: z.enum(["car", "transit", "bike", "foot"]).optional(),
   routeId: z.string().min(1).optional(),
   durationSeconds: z.number().int().nonnegative().optional(),
   distanceMeters: z.number().nonnegative().optional(),
