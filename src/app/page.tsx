@@ -14,6 +14,7 @@ import {
 } from "../contracts";
 import { routaAssistantLabel, routaBrand, routaSubtitle } from "../lib/brand";
 import { composerKeyAction } from "../lib/composer";
+import { formatItineraryTime } from "../lib/time";
 import {
   JUDGE_DEMO_TOTAL_MS,
   JUDGE_DEMO_TIMELINE,
@@ -44,13 +45,6 @@ const starter: ChatMessage = {
 
 function todayDate(): string {
   return new Date().toISOString().slice(0, 10);
-}
-
-function formatTime(value: string | undefined): string {
-  if (!value) return "待討論";
-  return new Intl.DateTimeFormat("zh-TW", { hour: "2-digit", minute: "2-digit" }).format(
-    new Date(value),
-  );
 }
 
 function formatDuration(seconds: number | undefined): string {
@@ -344,7 +338,7 @@ function StopTimeline({ snapshot }: { snapshot: DayItinerarySnapshot }) {
         <div className="timeline-row origin-row">
           <span className="timeline-dot origin" />
           <div className="timeline-copy">
-            <small>出發</small>
+            <small>出發 · {formatItineraryTime(snapshot.startAt)}</small>
             <strong>{snapshot.origin.label}</strong>
           </div>
         </div>
@@ -357,7 +351,7 @@ function StopTimeline({ snapshot }: { snapshot: DayItinerarySnapshot }) {
             <div className="timeline-copy">
               <small>
                 {stop.constraint === "fixed" ? "固定活動" : "可調整"} ·{" "}
-                {formatTime(stop.timeWindow?.startAt)}
+                {formatItineraryTime(stop.timeWindow?.startAt)}
               </small>
               <strong>{stop.title}</strong>
               <span>{stop.location.label}</span>
