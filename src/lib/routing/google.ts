@@ -329,12 +329,15 @@ export class GoogleRoutesProvider {
         body: JSON.stringify(body),
       });
       if (!response.ok) {
+        const details = (await response.text()).trim();
         return {
           status: "unavailable",
           reason:
             response.status === 429
               ? "Google Routes API 配額已達上限，請稍後再試"
-              : `Google Routes 回傳 ${response.status}`,
+              : response.status === 403
+                ? `Google Routes 回傳 403：請確認 Routes API、billing 與 server key restriction${details ? `（${details.slice(0, 180)}）` : ""}`
+                : `Google Routes 回傳 ${response.status}`,
         };
       }
       const data = GoogleRoutesResponseSchema.parse(await response.json());

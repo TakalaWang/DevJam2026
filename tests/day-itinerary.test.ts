@@ -14,6 +14,7 @@ import {
 } from "../src/contracts";
 import { FixtureItineraryAgent } from "../src/lib/conversation/fixtures";
 import { FixtureGoogleRoutesProvider } from "../src/lib/routing/fixtures";
+import { DemoRouteProvider } from "../src/lib/routing/demo";
 import { RoutePlanner, type RouteProvider } from "../src/lib/routing/planner";
 import { DayItineraryPlanner } from "../src/lib/itinerary/planner";
 import { ItineraryOrchestrator } from "../src/lib/itinerary/orchestrator";
@@ -247,5 +248,26 @@ describe("day itinerary orchestration", () => {
     expect(completed.itinerary.status).toBe("completed");
     expect(completed.itinerary.stops.every((stop) => stop.status === "visited")).toBe(true);
     expect(completed.itinerary.legs.at(-1)?.toStopId).toBe("home");
+  });
+
+  it("runs every local demo event from start through completion", async () => {
+    const scenarios = ["flood", "road_closure", "station_disruption", "bike_unavailable"] as const;
+    for (const scenario of scenarios) {
+      const orchestrator = service(new FixtureItineraryAgent(), new DemoRouteProvider());
+      const itinerary = orchestrator.createSession(
+        "demo-user",
+        new Date().toISOString().slice(0, 10),
+      );
+      await orchestrator.sendMessage(itinerary.id, "我今天想去聽演唱會");
+      await orchestrator.sendMessage(itinerary.id, "開始行程");
+
+      const refreshed = await orchestrator.demoRefresh(itinerary.id, scenario);
+      expect(refreshed.lastRun.status, scenario).toBe("succeeded");
+      expect(refreshed.notification, scenario).toBeDefined();
+
+      const completed = await orchestrator.sendMessage(itinerary.id, "完成行程");
+      expect(completed.itinerary.status, scenario).toBe("completed");
+      expect(completed.itinerary.stops.every((stop) => stop.status === "visited")).toBe(true);
+    }
   });
 });

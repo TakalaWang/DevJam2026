@@ -72,6 +72,23 @@ describe("Google Routes provider", () => {
     });
   });
 
+  it("explains a 403 without exposing the API key", async () => {
+    const provider = new GoogleRoutesProvider({
+      apiKey: "secret-test-key",
+      fetchImpl: async () =>
+        new Response("PERMISSION_DENIED: Routes API is not enabled", { status: 403 }),
+    });
+
+    const result = await provider.calculate({ request, profile: "car", blockedSignals: [] });
+
+    expect(result).toEqual({
+      status: "unavailable",
+      reason:
+        "Google Routes 回傳 403：請確認 Routes API、billing 與 server key restriction（PERMISSION_DENIED: Routes API is not enabled）",
+    });
+    expect(JSON.stringify(result)).not.toContain("secret-test-key");
+  });
+
   it("asks Google for waypoint detours when a hard area signal is present", async () => {
     const bodies: string[] = [];
     const provider = new GoogleRoutesProvider({
