@@ -10,7 +10,6 @@ import {
   type DayItinerarySnapshot,
   type DayItinerarySummary,
   type ItineraryNotification,
-  type PlanningField,
   type RoutePoint,
 } from "../contracts";
 import { routaAssistantLabel, routaBrand, routaSubtitle } from "../lib/brand";
@@ -24,7 +23,6 @@ import {
   judgeDemoNextPhase,
   type JudgeDemoPhase,
 } from "../lib/judge-demo";
-import { assessPlanningReadiness } from "../lib/itinerary/readiness";
 import {
   hasGoogleMapsKey,
   loadGoogleMaps,
@@ -98,28 +96,6 @@ function formatDemoElapsed(elapsedMs: number): string {
   const seconds = Math.min(Math.round(elapsedMs / 1000), JUDGE_DEMO_TOTAL_MS / 1000);
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }
-const planningFieldLabels: Record<PlanningField, string> = {
-  origin: "出發位置",
-  destinations: "想去的地點",
-  departure_at: "出門時間",
-  end_at: "結束／回家時間",
-  fixed_activities: "固定時間的活動",
-  transport_preference: "交通偏好",
-  return_plan: "回程安排",
-  constraints: "其他限制",
-  user_confirmation: "你的確認",
-};
-
-function planningPhaseLabel(phase: DayItinerarySnapshot["planningPhase"]): string {
-  return phase === "collecting"
-    ? "先了解你的需求"
-    : phase === "awaiting_confirmation"
-      ? "等待你確認需求"
-      : phase === "scheduling"
-        ? "正在建立完整行程"
-        : "可以繼續微調行程";
-}
-
 function summaryFromSnapshot(snapshot: DayItinerarySnapshot): DayItinerarySummary {
   return {
     id: snapshot.id,
@@ -1169,35 +1145,13 @@ export default function Page() {
                 </div>
                 <span className="route-source">GOOGLE ROUTES</span>
               </div>
-              {itinerary.status === "discussing" && (
-                <div className="planning-checklist">
-                  <div>
-                    <p className="kicker">01 / PLANNING STATUS</p>
-                    <strong>{planningPhaseLabel(itinerary.planningPhase)}</strong>
-                  </div>
-                  <ul>
-                    {assessPlanningReadiness(itinerary.planningFacts).missingFields.map((field) => (
-                      <li key={field}>{planningFieldLabels[field]}</li>
-                    ))}
-                  </ul>
-                  <span>
-                    {itinerary.planningPhase === "awaiting_confirmation"
-                      ? "請在左側對話確認摘要，確認後才會計算完整交通。"
-                      : "我會先把必要資訊問清楚，不會先替你猜測完整行程。"}
-                  </span>
-                </div>
-              )}
               <NavigationStatus snapshot={itinerary} />
               <RouteMap key={`${itinerary.id}-${itinerary.revision}`} snapshot={itinerary} />
               <StopTimeline snapshot={itinerary} />
               {readyToStart && blockedLegCount === 0 && (
                 <button
                   className="judge-demo-launch"
-                  disabled={
-                    loading ||
-                    !isToday ||
-                    isJudgeDemoRunning(judgeDemoPhase)
-                  }
+                  disabled={loading || !isToday || isJudgeDemoRunning(judgeDemoPhase)}
                   onClick={runJudgeDemo}
                   type="button"
                 >
