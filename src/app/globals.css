@@ -3181,3 +3181,7 @@ body,
     left: 15%;
   }
 }
+
+.history-sidebar .icon-button {
+  background: transparent;
+}
