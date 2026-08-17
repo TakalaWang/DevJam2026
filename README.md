@@ -1,21 +1,26 @@
-# 智慧避塞車行程 Agent
+# Routecraft · 避塞車行程 Agent
 
-輸入一天的固定行程，程式會逐段查詢開車路線並顯示交通感知行車時間、延誤與最晚出發時間。Google Maps Routes API 算路徑與路況；這個應用程式不讓 LLM 猜道路或塞車狀況。
+這是一個自然語言行程規劃介面：使用者在左側像聊天一樣描述一天的安排，Gemini 解析固定約會、彈性景點與交通偏好；後端再用 Google Routes API 的交通感知路線驗證，右側呈現可行的時間軸與地圖。
+
+固定時間不可移動；沒有固定時間的景點可以依交通時間重排。每次重排都會在聊天回覆中說明原因。
 
 ## 啟動
 
 ```bash
-python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
-PYTHONPATH=src .venv/bin/streamlit run app.py
+npm install
+npm run dev
 ```
 
-未設定金鑰時，頁面會進入明確標示的 **Demo mode**，使用固定資料，方便黑客松展示。
+- 前端：<http://localhost:5173>
+- API server：<http://localhost:8787>
 
-## 使用即時 Google 路況
+沒有設定 Key 時會進入 Demo mode，仍可用自然語言展示基本解析流程。正式模式請複製 `.env.example` 為 `.env`，填入 `GEMINI_API_KEY` 與 `GOOGLE_MAPS_API_KEY`。
 
-1. 在 Google Cloud 專案啟用 **Routes API**，並設定 billing。
-2. 複製 `.env.example` 為 `.env`，填入 `GOOGLE_MAPS_API_KEY`。
-3. 重新啟動 Streamlit。
+## 驗證
 
-金鑰只由 Streamlit 伺服器讀取，不會出現在瀏覽器端。Google 的交通資料僅適用於未來的出發時間；若輸入已過去的時間，請改成今天稍後或未來日期。
+```bash
+npm test
+npm run build
+```
+
+Gemini 與 Google API Key 只由 Express server 讀取，不會送到瀏覽器。
