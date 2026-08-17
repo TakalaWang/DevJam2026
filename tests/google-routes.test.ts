@@ -116,6 +116,45 @@ describe("Google Routes provider", () => {
     expect(JSON.parse(body).routingPreference).toBeUndefined();
   });
 
+  it("accepts transit steps without text navigation instructions", async () => {
+    const provider = new GoogleRoutesProvider({
+      apiKey: "test-key",
+      fetchImpl: async () =>
+        new Response(
+          JSON.stringify({
+            routes: [
+              {
+                distanceMeters: 5000,
+                duration: "120s",
+                polyline: { encodedPolyline: "_sywC_nqdVo}@o}@" },
+                legs: [
+                  {
+                    steps: [
+                      {
+                        distanceMeters: 500,
+                        staticDuration: "30s",
+                        navigationInstruction: {},
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          }),
+          { status: 200 },
+        ),
+    });
+
+    const result = await provider.calculate({
+      request: { ...request, profiles: ["transit"] },
+      profile: "transit",
+      blockedSignals: [],
+    });
+
+    expect(result.status).toBe("ok");
+    if (result.status === "ok") expect(result.paths[0]?.instructions).toEqual([]);
+  });
+
   it("explains a 403 without exposing the API key", async () => {
     const provider = new GoogleRoutesProvider({
       apiKey: "secret-test-key",

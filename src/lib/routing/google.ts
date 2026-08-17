@@ -50,7 +50,7 @@ const GoogleComputeRoutesRequestSchema = z.object({
 const GoogleStepSchema = z.object({
   distanceMeters: z.number().nonnegative().optional(),
   staticDuration: z.string().min(1).optional(),
-  navigationInstruction: z.object({ instructions: z.string().min(1) }).optional(),
+  navigationInstruction: z.object({ instructions: z.string().min(1).optional() }).optional(),
 });
 
 const GoogleRouteSchema = z.object({
