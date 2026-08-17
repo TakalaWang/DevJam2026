@@ -3,6 +3,7 @@ import {
   DayItineraryListResponseSchema,
   DayItineraryResponseSchema,
   DeleteDayItineraryResponseSchema,
+  LiveDayItineraryResponseSchema,
   NotificationListResponseSchema,
 } from "../src/contracts";
 import { createGetHandler, createPostHandler } from "../src/app/api/day-plans/route";
@@ -13,9 +14,10 @@ import { createGetHandler as createDetailGetHandler } from "../src/app/api/day-p
 import { createMessageHandler } from "../src/app/api/day-plans/[id]/messages/route";
 import { createStartHandler } from "../src/app/api/day-plans/[id]/start/route";
 import { createRefreshHandler } from "../src/app/api/day-plans/[id]/refresh/route";
+import { createLiveRefreshHandler } from "../src/app/api/day-plans/[id]/refresh/live/route";
 import { createNotificationsHandler } from "../src/app/api/day-plans/[id]/notifications/route";
 import { FixtureItineraryAgent } from "../src/lib/conversation/fixtures";
-import { FixtureGraphHopperProvider } from "../src/lib/routing/fixtures";
+import { FixtureGoogleRoutesProvider } from "../src/lib/routing/fixtures";
 import { RoutePlanner } from "../src/lib/routing/planner";
 import { DayItineraryPlanner } from "../src/lib/itinerary/planner";
 import { ItineraryOrchestrator } from "../src/lib/itinerary/orchestrator";
@@ -32,7 +34,7 @@ const direct = {
   durationSeconds: 900,
   stationIds: [],
   instructions: [],
-  provider: "graphhopper" as const,
+  provider: "google" as const,
 };
 
 function service() {
@@ -41,7 +43,7 @@ function service() {
     new FixtureItineraryAgent(),
     new DayItineraryPlanner(
       new RoutePlanner(
-        new FixtureGraphHopperProvider([
+        new FixtureGoogleRoutesProvider([
           {
             profile: "car",
             normal: [direct],
@@ -162,6 +164,19 @@ describe("day itinerary API", () => {
       ).json(),
     );
     expect(started.itinerary.status).toBe("active");
+
+    const live = LiveDayItineraryResponseSchema.parse(
+      await (
+        await createLiveRefreshHandler(orchestrator)(
+          await postJson(`http://localhost/api/day-plans/${id}/refresh/live`, {
+            city: "Taipei",
+          }),
+          { params: Promise.resolve({ id }) },
+        )
+      ).json(),
+    );
+    expect(live.cityFeeds.city).toBe("Taipei");
+    expect(live.cityFeeds.feeds).toHaveLength(4);
 
     const refreshed = DayItineraryResponseSchema.parse(
       await (

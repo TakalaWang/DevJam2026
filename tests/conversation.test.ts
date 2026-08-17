@@ -64,7 +64,7 @@ describe("Gemini conversation contract boundary", () => {
           },
           after: {
             status: "active",
-            provider: "graphhopper",
+            provider: "google",
             profile: "car",
             routeId: "gh-detour",
             durationSeconds: 1200,
@@ -78,6 +78,6 @@ describe("Gemini conversation contract boundary", () => {
     });
     expect(output.kind).toBe("service_disruption");
     expect(output.affectedLegIds).toEqual(["leg-1"]);
-    expect(output.changes[0]?.after.provider).toBe("graphhopper");
+    expect(output.changes[0]?.after.provider).toBe("google");
   });
 });

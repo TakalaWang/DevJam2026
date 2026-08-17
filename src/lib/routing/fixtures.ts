@@ -25,7 +25,7 @@ function requiresReroute(signals: RouteSignal[]): boolean {
   );
 }
 
-export class FixtureGraphHopperProvider implements RouteProvider {
+export class FixtureGoogleRoutesProvider implements RouteProvider {
   private readonly routes: FixtureRouteSet[];
 
   constructor(routes: FixtureRouteSet[]) {

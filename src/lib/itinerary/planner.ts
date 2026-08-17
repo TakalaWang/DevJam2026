@@ -67,9 +67,9 @@ export class DayItineraryPlanner {
       const from = points[index - 1];
       const to = points[index];
       if (!from || !to) continue;
-      // ponytail: one preferred Google/GraphHopper profile per leg keeps the MVP within API quotas;
-      // add per-leg multimodal fallback when transit gateways are integrated.
-      const profile = snapshot.profiles[0] ?? "car";
+      // ponytail: normal planning uses one preferred Google profile; disruption refreshes
+      // expand to every allowed profile before declaring the leg unavailable.
+      const profiles = signals.length ? snapshot.profiles : [snapshot.profiles[0] ?? "car"];
       const previousLeg = snapshot.legs.find(
         (leg) => leg.fromStopId === from.id && leg.toStopId === to.id,
       );
@@ -77,7 +77,7 @@ export class DayItineraryPlanner {
         RouteRequestSchema.parse({
           origin: from.point,
           destination: to.point,
-          profiles: [profile],
+          profiles,
           maxExtraMinutes: 20,
           bikeStations: [],
         }),

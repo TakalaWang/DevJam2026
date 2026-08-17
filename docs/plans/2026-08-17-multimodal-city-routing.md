@@ -2,11 +2,11 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** 將 Routecraft 從單一道路行程升級為台灣城市的一日多運具規劃器，支援 Google Routes、GraphHopper、YouBike、捷運、公車、高鐵與台鐵資料，並能在行程開始後依即時異動重新安排後續路段。
+**Goal:** 將 Routecraft 從單一道路行程升級為台灣城市的一日多運具規劃器，支援 Google Routes、YouBike、捷運、公車、高鐵與台鐵資料，並能在行程開始後依即時異動重新安排後續路段。
 
-**Architecture:** Gemini 只負責透過自然語言理解需求、追問缺少資訊並產生 typed itinerary command。所有交通資料先由 provider gateway 轉成 Zod 驗證的 normalized mobility evidence，再由 deterministic planner 組合成候選交通段。Google Routes 是一般道路 baseline；GraphHopper 只在淹水、封路、照明不足等硬事件介入；TDX 負責鐵路、捷運、公車與公共自行車的班次、站點、即時狀態與供給資料。
+**Architecture:** Gemini 只負責透過自然語言理解需求、追問缺少資訊並產生 typed itinerary command。所有交通資料先由 provider gateway 轉成 Zod 驗證的 normalized mobility evidence，再由 deterministic planner 組合成候選交通段。Google Routes 同時負責 baseline、alternative、route modifier 與 waypoint-constrained detour；事件 polygon 由 deterministic validator 篩選，不引入其他路由引擎。TDX 負責鐵路、捷運、公車與公共自行車的班次、站點、即時狀態與供給資料。
 
-**Tech Stack:** TypeScript、Next.js API routes、Gemini Interactions API、Zod 4、SQLite、Google Routes API、GraphHopper Routing API、TDX Open API、Vitest。
+**Tech Stack:** TypeScript、Next.js API routes、Gemini Interactions API、Zod 4、SQLite、Google Routes API、TDX Open API、Vitest。
 
 ---
 
@@ -25,18 +25,22 @@ Routecraft 的產品定位是「城市狀態感知的旅遊分流 Agent」：使
 
 ## 2. Provider 分工
 
-| Provider | 負責資料 | 使用時機 | 不負責的事 |
-| --- | --- | --- | --- |
-| Google Routes | 開車、步行、單車道路 baseline、即時交通時間 | 一般 A→B 路段與道路 last mile | 不直接判斷 YouBike 供給、鐵路停駛或城市安全政策 |
-| GraphHopper | 可自訂避開區域的道路候選路線 | 淹水、封路、低照明、硬性道路限制 | 不取代鐵路／公車班次，也不猜測站點供給 |
-| TDX | 高鐵、台鐵、捷運、公車、公共自行車、道路事件 | 班次、站點、即時到離站、延誤、營運狀態、YouBike 可借／可還 | 不直接輸出最後可執行的完整日行程 |
-| Gemini | 需求理解、追問、解釋與通知文字 | 使用者對話與可理解的變更說明 | 不直接讀第三方 raw JSON、不裁決安全與時間可行性 |
+| Provider      | 負責資料                                                           | 使用時機                                                   | 不負責的事                                      |
+| ------------- | ------------------------------------------------------------------ | ---------------------------------------------------------- | ----------------------------------------------- |
+| Google Routes | 開車、步行、單車 baseline、alternative、即時交通與 waypoint detour | 一般 A→B 路段、道路 last mile 與事件改道                   | 不直接判斷 YouBike 供給、鐵路停駛或城市安全政策 |
+| TDX           | 高鐵、台鐵、捷運、公車、公共自行車、道路事件與路況壅塞             | 班次、站點、即時到離站、延誤、營運狀態、YouBike 可借／可還 | 不直接輸出最後可執行的完整日行程                |
+| CWA           | 豪雨、颱風、強風、高溫與地震警特報                                 | 將官方天氣警示轉成有時效的城市風險訊號                     | 不自行推估未發布的災情                          |
+| NCDR          | 淹水、道路封閉與災害示警                                           | 將官方災害訊息與 polygon 轉成路線安全訊號                  | 沒有 API key 時不假造安全狀態                   |
+| 臺北捷運      | 車站／車廂擁擠度（需會員核准）                                     | 對接站點附近的擁擠風險                                     | 不把擁擠度當成正式人流預測                      |
+| Gemini        | 需求理解、追問、解釋與通知文字                                     | 使用者對話與可理解的變更說明                               | 不直接讀第三方 raw JSON、不裁決安全與時間可行性 |
 
-Google Routes 的 Compute Routes 支援道路、步行、單車與 traffic-aware routing；GraphHopper custom model 支援以區域和 priority 規則避開路段。TDX 的資料服務涵蓋公車、軌道、航空、自行車、路況與道路事件，並提供高鐵、台鐵、捷運、公車與公共自行車資料類型。
+Google Routes 的 Compute Routes 支援道路、步行、單車、TRANSIT 與 traffic-aware routing；事件改道透過 alternatives、route modifiers 與多組 waypoint 查詢完成，再由本系統驗證 polygon。TDX 的資料服務涵蓋公車、軌道、航空、自行車、路況與道路事件，並提供高鐵、台鐵、捷運、公車與公共自行車資料類型。
 
 - [Google Routes API](https://developers.google.com/maps/documentation/routes)
 - [Google traffic routing options](https://developers.google.com/maps/documentation/routes/traffic-opt)
-- [GraphHopper custom models](https://github.com/graphhopper/graphhopper/blob/master/docs/core/custom-models.md)
+- [Google route modifiers](https://developers.google.com/maps/documentation/routes/route-modifiers)
+- [Google alternative routes](https://developers.google.com/maps/documentation/javascript/routes/get-alternative-routes)
+- [Google intermediate waypoints](https://developers.google.com/maps/documentation/routes/intermed_waypoints)
 - [TDX 線上 API 說明](https://tdx.transportdata.tw/api-service/swagger/basic/5fa88b0c-120b-43f1-b188-c379ddb2593d)
 - [TDX 資料服務](https://tdx.transportdata.tw/data-service/basic)
 - [政府資料開放平台 YouBike 即時服務資料](https://data.gov.tw/dataset/173677)
@@ -68,7 +72,7 @@ MobilityMode
 ```text
 MobilityEvidence {
   id
-  provider: google_routes | graphhopper | tdx | city_feed
+  provider: google_routes | tdx | city_feed
   mode
   observedAt
   fetchedAt
@@ -102,7 +106,7 @@ MobilityLeg {
 }
 ```
 
-道路 `routePath` 使用 Google 或 GraphHopper 的共同 `RoutePathSchema`；鐵路、捷運、公車使用 `serviceId`、車站／站牌與班次 evidence，不把大眾運輸假裝成 GraphHopper 道路路徑。
+道路 `routePath` 只使用 Google Routes 的 `RoutePathSchema`；鐵路、捷運、公車使用 `serviceId`、車站／站牌與班次 evidence，不把大眾運輸假裝成道路路徑。
 
 ## 4. Planner flow
 
@@ -116,7 +120,7 @@ MobilityLeg {
 Mobility Gateway 查詢
   ├─ Google：道路 baseline
   ├─ TDX：班次、站點、服務狀態、YouBike
-  └─ GraphHopper：只有硬事件的道路候選
+  └─ Google：route modifiers 與 waypoint-constrained detour candidates
   ↓
 Deterministic Multimodal Planner
   ├─ 固定活動與固定班次不可任意移動
@@ -263,7 +267,7 @@ RouteChangeNotification {
 
 - 使用日期、起訖城市與可接受出發／抵達時間查詢班次。
 - 班次是 fixed transit leg；班次延誤時，保留固定活動並只重排柔性活動與後續接駁。
-- 高鐵／台鐵本身由 TDX service evidence 描述；車站前後的步行、接駁、開車或單車路段由 Google baseline 規劃，硬事件再交 GraphHopper。
+- 高鐵／台鐵本身由 TDX service evidence 描述；車站前後的步行、接駁、開車或單車路段由 Google Routes 規劃，硬事件仍由 Google waypoint detour 處理。
 - 不在 MVP 內處理購票、付款、座位鎖定或票價交易。
 
 ## 6. Implementation Tasks
@@ -296,10 +300,16 @@ RouteChangeNotification {
 **Steps:**
 
 1. 使用 server-only `TDX_CLIENT_ID`、`TDX_CLIENT_SECRET`，建立 process-local token cache。
-2. 先鎖定台北／新北，盤點並測試 TDX Swagger 的實際 operation，不在 code 中猜 endpoint。
+2. 先鎖定台北／新北，盤點並測試 TDX Swagger 的實際 operation，不在 code 中猜 endpoint。已確認並接上：`Bike/Station` + `Bike/Availability`、`Road/Traffic/Live/City`、`Traffic/RoadEvent/LiveEvent/City`、捷運 `Alert`、公車 `Alert`、臺鐵 `LiveTrainDelay`、高鐵 `AlertInfo`。
 3. 第一批接：高鐵／台鐵時刻與異動、台北／新北捷運站與服務狀態、公車路線與預估到站、公共自行車站點與可借／可還數量。
 4. 每個 response 在 gateway 邊界立即 parse；HTTP error、schema error、過期資料與 rate limit 都轉成 typed `unavailable`／`stale`。
 5. 使用 mocked fetch 測試 token、HTTP 429、空資料、欄位改變與 freshness policy。
+
+目前 local MVP 已完成 TDX gateway 與 typed mapper；HTTP 429、schema error 與個別 operation 失效會保留 feed 為不可用，不會清空既有行程或假造正常狀態。
+
+### Task 2A: Add official weather, disaster and metro crowding feeds
+
+已建立 `CityDataGateway`，並透過 `/api/day-plans/:id/refresh/live` 同時查詢 TDX、CWA、NCDR 與臺北捷運擁擠度來源。CWA／NCDR／捷運 API 沒有設定或需要額外核准時，回傳 typed `unavailable`。
 
 ### Task 3: Build multimodal candidate composition
 
@@ -313,7 +323,7 @@ RouteChangeNotification {
 **Steps:**
 
 1. 將每個相鄰 stop pair 拆成 access、main service、egress 三種可能交通段。
-2. Google 處理道路 baseline；TDX 回傳 transit candidates；GraphHopper 只處理 hard disruption 的道路 candidate。
+2. Google 處理道路 baseline、alternatives 與 waypoint candidates；TDX 回傳 transit candidates。
 3. 使用 deterministic scoring：先排除安全／停駛／過期不可用資料，再比較抵達時間、轉乘數、buffer、步行負擔與使用者偏好。
 4. 固定活動、固定高鐵／台鐵班次不得被預測結果任意移動；柔性景點才可重排。
 5. 每個 candidate 保存 provider、service、時間窗、風險與 evidenceIds。
@@ -350,7 +360,7 @@ RouteChangeNotification {
 - 捷運停駛：轉成其他捷運線、公車、步行或 Google 道路段。
 - 公車延誤：增加候車風險，選擇替代路線。
 - YouBike 無車／無位：改站點或換運具。
-- 淹水／封路：Google baseline 保留為 evidence，GraphHopper 產生避開區域的 candidate。
+- 淹水／封路：Google baseline 保留為 evidence，Google alternatives、route modifiers 與 waypoint candidates 產生避開區域的 candidate。
 - 豪雨／颱風／地震／淹水警示：只在 CWA 或 NCDR 有有效事件時進入安全評估。
 - 所有 provider 過期／失效：回傳 unavailable，不假造城市狀態。
 
@@ -365,11 +375,11 @@ RouteChangeNotification {
 3. YouBike 可借／不可借與目的地無停車位。
 4. 捷運／公車正常與異常服務。
 5. 高鐵／台鐵固定班次與延誤後重排。
-6. 淹水／封路時 GraphHopper 只改受影響道路段。
+6. 淹水／封路時只使用 Google route candidates 改變受影響道路段。
 7. 回家交通段永遠存在，除非明確 `returnHome: false`。
 8. CWA 豪雨／颱風警特報、NCDR 淹水／災害事件、TDX 停駛／延誤與 YouBike 無車／無位都能轉成 typed event；來源失效時為 `stale`／`unavailable`。
 9. 每個改道路線通知都能說明原因、原方案、新方案與差異，不只顯示狀態更新。
-10. 真實 Google Routes、GraphHopper、TDX 與至少一個 CWA／NCDR smoke test；測試輸出只保存 typed summary，不保存 API key。
+10. 真實 Google Routes、TDX 與至少一個 CWA／NCDR smoke test；測試輸出只保存 typed summary，不保存 API key。
 
 ## 7. Environment and acceptance
 
@@ -378,18 +388,21 @@ RouteChangeNotification {
 ```text
 GOOGLE_MAPS_API_KEY
 GOOGLE_ROUTES_BASE_URL=https://routes.googleapis.com/directions/v2:computeRoutes
-GRAPHHOPPER_API_KEY
-GRAPHHOPPER_BASE_URL=https://graphhopper.com/api/1
 TDX_CLIENT_ID
 TDX_CLIENT_SECRET
 TDX_BASE_URL=https://tdx.transportdata.tw
+CWA_API_KEY
+NCDR_API_KEY
+TAIPEI_METRO_API_KEY
+TAIPEI_METRO_CROWDING_URL
 ```
 
 驗收條件：
 
 - 沒有交通資料時不會把 Google 道路路線冒充成捷運、公車或火車。
 - 沒有正式班次／供給資料時，系統明確顯示 `unavailable` 或 `stale`。
-- 一般道路行程不呼叫 GraphHopper；只有硬事件才呼叫。
+- TDX、CWA、NCDR 與臺北捷運資料先通過 Zod gateway；單一來源 404／429／schema 變更不會被當成正常狀態。
+- 一般道路與硬事件都只呼叫 Google Routes；硬事件額外使用 alternatives、route modifiers 與 waypoint candidates。
 - 固定活動與固定班次不因模糊預測被任意刪除或移動。
 - 所有交通段、服務異動、風險 finding、通知與 API response 通過 Zod。
 - `pnpm test -- --run`、`pnpm run lint`、`pnpm run build` 全部通過。

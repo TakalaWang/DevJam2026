@@ -160,7 +160,7 @@ function RouteMap({ snapshot }: { snapshot: DayItinerarySnapshot }) {
         })}
       </svg>
       <div className="map-caption">
-        <span className="status-dot" /> GraphHopper · {snapshot.legs.length} 段交通
+        <span className="status-dot" /> Google Routes · {snapshot.legs.length} 段交通
       </div>
     </div>
   );
@@ -455,7 +455,7 @@ export default function Page() {
         </div>
         <div className="local-status">
           <span className="status-dot" />
-          LOCAL ONLY · GEMINI + GRAPHHOPPER
+          LOCAL ONLY · GEMINI + GOOGLE ROUTES
         </div>
       </header>
       <div className="workbench-grid">
@@ -615,7 +615,7 @@ export default function Page() {
                     {itinerary.returnHome ? "包含回家" : "不返回起點"}
                   </span>
                 </div>
-                <span className="route-source">GRAPH HOPPER</span>
+                <span className="route-source">GOOGLE ROUTES</span>
               </div>
               <RouteMap snapshot={itinerary} />
               <StopTimeline snapshot={itinerary} />
@@ -624,7 +624,7 @@ export default function Page() {
                   {blockedLegCount > 0 ? (
                     <p className="start-blocked">
                       Gemini 已完成行程內容，但目前有 {blockedLegCount} 段交通沒有可用路線，請先確認
-                      GraphHopper API 設定。
+                      Google Routes API 設定。
                     </p>
                   ) : (
                     <>

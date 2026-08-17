@@ -7,6 +7,7 @@ import {
   ItineraryNotificationSchema,
 } from "./itinerary";
 import { RouteSignalSchema } from "./route";
+import { CityFeedSnapshotSchema, CityFeedQuerySchema } from "./city";
 
 export const CreateDayItineraryRequestSchema = z.object({
   userId: z.string().min(1).max(200).default("anonymous"),
@@ -24,6 +25,9 @@ export type MessageRequest = z.infer<typeof MessageRequestSchema>;
 
 export const RefreshRequestSchema = z.object({ signals: z.array(RouteSignalSchema).default([]) });
 export type RefreshRequest = z.infer<typeof RefreshRequestSchema>;
+
+export const LiveRefreshRequestSchema = CityFeedQuerySchema;
+export type LiveRefreshRequest = z.infer<typeof LiveRefreshRequestSchema>;
 
 export const DemoScenarioSchema = z.enum([
   "flood",
@@ -55,6 +59,11 @@ export const DayItineraryResponseSchema = z.object({
   notification: ItineraryNotificationSchema.optional(),
 });
 export type DayItineraryResponse = z.infer<typeof DayItineraryResponseSchema>;
+
+export const LiveDayItineraryResponseSchema = DayItineraryResponseSchema.extend({
+  cityFeeds: CityFeedSnapshotSchema,
+});
+export type LiveDayItineraryResponse = z.infer<typeof LiveDayItineraryResponseSchema>;
 
 export const DayItineraryListResponseSchema = z.object({
   itineraries: z.array(DayItinerarySummarySchema),

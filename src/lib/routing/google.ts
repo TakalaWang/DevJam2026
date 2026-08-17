@@ -9,17 +9,34 @@ import {
   type RoutePath,
   type RouteProfile,
   type RouteProviderResult,
+  type RouteSignal,
+  type RiskPolygon,
 } from "../../contracts";
 import { z } from "zod";
+import { createCombinedDetourWaypointPairs, createDetourWaypointPairs } from "./geometry";
 
 const GoogleTravelModeSchema = z.enum(["DRIVE", "BICYCLE", "WALK"]);
+const GoogleWaypointSchema = z.object({
+  location: z.object({ latLng: CoordinateSchema }),
+  via: z.boolean().optional(),
+});
+const GoogleRouteModifiersSchema = z
+  .object({
+    avoidTolls: z.boolean().optional(),
+    avoidHighways: z.boolean().optional(),
+    avoidFerries: z.boolean().optional(),
+    avoidIndoor: z.boolean().optional(),
+  })
+  .partial();
 
 const GoogleComputeRoutesRequestSchema = z.object({
   origin: z.object({ location: z.object({ latLng: CoordinateSchema }) }),
   destination: z.object({ location: z.object({ latLng: CoordinateSchema }) }),
+  intermediates: z.array(GoogleWaypointSchema).max(25).optional(),
   travelMode: GoogleTravelModeSchema,
   routingPreference: z.enum(["TRAFFIC_AWARE", "TRAFFIC_AWARE_OPTIMAL"]).optional(),
-  computeAlternativeRoutes: z.boolean(),
+  computeAlternativeRoutes: z.boolean().optional(),
+  routeModifiers: GoogleRouteModifiersSchema.optional(),
   languageCode: z.string().min(1),
   units: z.literal("METRIC"),
   departureTime: z.string().datetime({ offset: true }).optional(),
@@ -38,7 +55,17 @@ const GoogleRouteSchema = z.object({
   legs: z.array(z.object({ steps: z.array(GoogleStepSchema).default([]) })).default([]),
 });
 
-const GoogleRoutesResponseSchema = z.object({ routes: z.array(GoogleRouteSchema).min(1) });
+const GoogleRoutesResponseSchema = z.object({ routes: z.array(GoogleRouteSchema) });
+
+type GoogleRouteVariant = {
+  label: string;
+  computeAlternativeRoutes: boolean;
+  intermediates?: Coordinate[];
+  routeModifiers?: z.infer<typeof GoogleRouteModifiersSchema>;
+};
+
+type GoogleQueryResult =
+  { status: "ok"; paths: RoutePath[] } | { status: "unavailable"; reason: string };
 
 export type GoogleRoutesProviderOptions = {
   baseUrl?: string;
@@ -48,6 +75,110 @@ export type GoogleRoutesProviderOptions = {
 
 function travelMode(profile: RouteProfile): z.infer<typeof GoogleTravelModeSchema> {
   return profile === "car" ? "DRIVE" : profile === "bike" ? "BICYCLE" : "WALK";
+}
+
+function isHardAreaSignal(signal: RouteSignal): boolean {
+  return (
+    signal.kind === "road_closure" ||
+    (signal.kind === "flood_zone" && signal.severity === "blocked") ||
+    (signal.kind === "station_disruption" && signal.status !== "delayed") ||
+    (signal.kind === "low_lighting" && signal.severity === "blocked")
+  );
+}
+
+function signalPolygon(signal: RouteSignal): RiskPolygon | undefined {
+  switch (signal.kind) {
+    case "flood_zone":
+    case "road_closure":
+    case "station_disruption":
+    case "traffic":
+    case "low_lighting":
+      return signal.polygon;
+    case "bike_station":
+      return undefined;
+  }
+}
+
+function variantsFor(
+  profile: RouteProfile,
+  request: z.infer<typeof GoogleComputeRoutesRequestSchema>,
+  signals: RouteSignal[],
+): GoogleRouteVariant[] {
+  const variants: GoogleRouteVariant[] = [
+    {
+      label: "baseline",
+      computeAlternativeRoutes: true,
+      ...(request.intermediates
+        ? { intermediates: request.intermediates.map((item) => item.location.latLng) }
+        : {}),
+    },
+  ];
+  if (!signals.length) return variants;
+
+  if (profile === "car") {
+    variants.push(
+      {
+        label: "avoid-highways",
+        computeAlternativeRoutes: true,
+        routeModifiers: { avoidHighways: true },
+      },
+      {
+        label: "avoid-tolls",
+        computeAlternativeRoutes: true,
+        routeModifiers: { avoidTolls: true },
+      },
+      {
+        label: "avoid-ferries",
+        computeAlternativeRoutes: true,
+        routeModifiers: { avoidFerries: true },
+      },
+      {
+        label: "avoid-all-road-risks",
+        computeAlternativeRoutes: true,
+        routeModifiers: { avoidHighways: true, avoidTolls: true, avoidFerries: true },
+      },
+    );
+  }
+  if (profile === "foot") {
+    variants.push({
+      label: "avoid-indoor",
+      computeAlternativeRoutes: true,
+      routeModifiers: { avoidIndoor: true },
+    });
+  }
+
+  const hardPolygons = signals
+    .filter(isHardAreaSignal)
+    .map(signalPolygon)
+    .filter((polygon): polygon is RiskPolygon => Boolean(polygon));
+  const combinedDetours = createCombinedDetourWaypointPairs(
+    hardPolygons,
+    request.origin.location.latLng,
+    request.destination.location.latLng,
+  ).map((intermediates, index) => ({
+    label: `combined-detour-${index + 1}`,
+    computeAlternativeRoutes: false,
+    intermediates,
+  }));
+  const individualDetours = signals
+    .filter(isHardAreaSignal)
+    .flatMap((signal) => {
+      const polygon = signalPolygon(signal);
+      return polygon
+        ? createDetourWaypointPairs(
+            polygon,
+            request.origin.location.latLng,
+            request.destination.location.latLng,
+          )
+        : [];
+    })
+    .slice(0, 4)
+    .map((intermediates, index) => ({
+      label: `detour-${index + 1}`,
+      computeAlternativeRoutes: false,
+      intermediates,
+    }));
+  return [...variants, ...combinedDetours.slice(0, 4), ...individualDetours].slice(0, 11);
 }
 
 function parseDuration(value: string): number {
@@ -93,6 +224,7 @@ function decodePolyline(encoded: string): Coordinate[] {
 function toRoutePath(
   profile: RouteProfile,
   index: number,
+  variant: string,
   route: z.infer<typeof GoogleRouteSchema>,
 ): RoutePath {
   const instructions = route.legs.flatMap((leg) =>
@@ -110,7 +242,7 @@ function toRoutePath(
     }),
   );
   return RoutePathSchema.parse({
-    id: `google-${profile}-${index + 1}`,
+    id: `google-${profile}-${variant}-${index + 1}`,
     profile,
     coordinates: decodePolyline(route.polyline.encodedPolyline),
     distanceMeters: route.distanceMeters,
@@ -144,47 +276,79 @@ export class GoogleRoutesProvider {
         reason: "Google Routes API 未設定 API key",
       });
     }
-    const body = GoogleComputeRoutesRequestSchema.parse({
+    const baseRequest = GoogleComputeRoutesRequestSchema.parse({
       origin: { location: { latLng: request.origin.coordinate } },
       destination: { location: { latLng: request.destination.coordinate } },
       travelMode: travelMode(input.profile),
       ...(input.profile === "car" ? { routingPreference: "TRAFFIC_AWARE" } : {}),
-      computeAlternativeRoutes: true,
       languageCode: "zh-TW",
       units: "METRIC",
       ...(request.departureAt ? { departureTime: request.departureAt } : {}),
     });
+    const variants = variantsFor(input.profile, baseRequest, input.blockedSignals);
+    const results = await Promise.all(
+      variants.map((variant) => this.query(input.profile, baseRequest, variant)),
+    );
+    const paths = results.flatMap((result) => (result.status === "ok" ? result.paths : []));
+    if (paths.length) return RouteProviderResultSchema.parse({ status: "ok", paths });
+    return RouteProviderResultSchema.parse({
+      status: "unavailable",
+      reason:
+        results.find((result) => result.status === "unavailable")?.reason ??
+        "Google Routes 沒有回傳可用路線",
+    });
+  }
 
+  private async query(
+    profile: RouteProfile,
+    baseRequest: z.infer<typeof GoogleComputeRoutesRequestSchema>,
+    variant: GoogleRouteVariant,
+  ): Promise<GoogleQueryResult> {
+    const body = GoogleComputeRoutesRequestSchema.parse({
+      ...baseRequest,
+      computeAlternativeRoutes: variant.computeAlternativeRoutes,
+      ...(variant.intermediates
+        ? {
+            intermediates: variant.intermediates.map((coordinate) => ({
+              location: { latLng: coordinate },
+              via: true,
+            })),
+          }
+        : {}),
+      ...(variant.routeModifiers ? { routeModifiers: variant.routeModifiers } : {}),
+    });
     try {
       const response = await this.fetchImpl(this.baseUrl, {
         method: "POST",
         headers: {
           "content-type": "application/json",
-          "x-goog-api-key": this.apiKey,
+          "x-goog-api-key": this.apiKey ?? "",
           "x-goog-fieldmask":
             "routes.distanceMeters,routes.duration,routes.polyline.encodedPolyline,routes.legs.steps.distanceMeters,routes.legs.steps.staticDuration,routes.legs.steps.navigationInstruction",
         },
         body: JSON.stringify(body),
       });
       if (!response.ok) {
-        return RouteProviderResultSchema.parse({
+        return {
           status: "unavailable",
           reason:
             response.status === 429
               ? "Google Routes API 配額已達上限，請稍後再試"
               : `Google Routes 回傳 ${response.status}`,
-        });
+        };
       }
       const data = GoogleRoutesResponseSchema.parse(await response.json());
-      return RouteProviderResultSchema.parse({
+      if (!data.routes.length)
+        return { status: "unavailable", reason: "Google Routes 沒有找到路線" };
+      return {
         status: "ok",
-        paths: data.routes.map((route, index) => toRoutePath(input.profile, index, route)),
-      });
+        paths: data.routes.map((route, index) => toRoutePath(profile, index, variant.label, route)),
+      };
     } catch (error) {
-      return RouteProviderResultSchema.parse({
+      return {
         status: "unavailable",
         reason: error instanceof Error ? error.message : "Google Routes 服務無法使用",
-      });
+      };
     }
   }
 }

@@ -1,8 +1,8 @@
 # Routecraft · 即時城市路線 App
 
-Routecraft 是只在本機執行的日行程 Web 工作台：左側保存行程紀錄，中間用 Gemini 討論，右側顯示從出門到回家的完整行程與每一段交通。開始行程後，Demo monitor 可以模擬淹水、封路、車站中斷與 YouBike 供給事件，透過 GraphHopper 重新計算受影響路段並發送包含原因、前後方案與差異的通知。
+Routecraft 是只在本機執行的日行程 Web 工作台：左側保存行程紀錄，中間用 Gemini 討論，右側顯示從出門到回家的完整行程與每一段交通。開始行程後，Demo monitor 可以模擬淹水、封路、車站中斷與 YouBike 供給事件，透過 Google Routes 的替代路線與 waypoint detour 重新計算受影響路段，並發送包含原因、前後方案與差異的通知。
 
-目前的城市事件來源仍是 `/demo` 與 `/refresh` 的 typed MVP 入口，尚未進行 CWA、NCDR、TDX 的背景輪詢；正式接線與事件追蹤設計見 [`docs/plans/2026-08-17-multimodal-city-routing.md`](docs/plans/2026-08-17-multimodal-city-routing.md)。
+目前的城市事件來源有 `/demo`、`/refresh` 與 `/refresh/live` 三個 typed 入口；local client 或 cron 可每五分鐘呼叫 live endpoint，背景輪詢本身不由 Next process 常駐執行。
 
 ## 啟動
 
@@ -16,8 +16,12 @@ pnpm dev
 
 - `GEMINI_API_KEY`：Gemini Interactions API 對話與通知 Agent。
 - `GEMINI_MODEL`：預設 `gemini-3.6-flash`。
-- `GRAPHHOPPER_API_KEY`：GraphHopper 路線服務。
-- `GRAPHHOPPER_BASE_URL`：預設 `https://graphhopper.com/api/1`。
+- `GOOGLE_MAPS_API_KEY`：Google Routes API。
+- `GOOGLE_ROUTES_BASE_URL`：預設 `https://routes.googleapis.com/directions/v2:computeRoutes`。
+- `TDX_CLIENT_ID`／`TDX_CLIENT_SECRET`：TDX 交通、路況、YouBike、捷運／公車／臺鐵／高鐵異動。
+- `CWA_API_KEY`：中央氣象署天氣警特報。
+- `NCDR_API_KEY`：NCDR 災害示警 API。
+- `TAIPEI_METRO_API_KEY`／`TAIPEI_METRO_CROWDING_URL`：臺北捷運車站／車廂擁擠度會員 API。
 - `ROUTECRAFT_DB_PATH`：SQLite snapshot 路徑。
 
 ## 一日行程 API
@@ -88,7 +92,20 @@ Content-Type: application/json
 { "signals": [] }
 ```
 
-所有 API、Agent、GraphHopper mapper、SQLite snapshot、run、route signal 與 notification 都先經 Zod schema 驗證。Gemini 只能提出 typed itinerary command；路線與安全裁決由 deterministic route planner 處理。
+正式城市資料可使用 live refresh endpoint；它會同時查詢 TDX、CWA、NCDR 與已設定的臺北捷運擁擠 API，再把通過 Zod mapper 的交通壅塞、道路事件、YouBike 供給、運輸異常、天氣與災害訊號送進同一個行程重算流程：
+
+```http
+POST /api/day-plans/:id/refresh/live
+Content-Type: application/json
+```
+
+```json
+{ "city": "Taipei" }
+```
+
+未設定金鑰或來源暫時失效時，response 會保留每個 feed 的 `unavailable` 狀態，不會把缺資料當成「目前正常」。
+
+所有 API、Agent、Google Routes mapper、SQLite snapshot、run、route signal 與 notification 都先經 Zod schema 驗證。Gemini 只能提出 typed itinerary command；路線與安全裁決由 deterministic route planner 處理。
 
 ## 驗證
 
@@ -98,4 +115,4 @@ pnpm run lint
 pnpm run build
 ```
 
-測試包含 GraphHopper route fixture、完整回家路段、行程歷史刪除，以及「指定日期 → Gemini 對話 → ready → 開始 → Demo 城市事件 → 通知 → 完成」的一日行程 e2e。
+測試包含 Google Routes route fixture、Google waypoint detour、TDX／CWA／NCDR／臺北捷運 typed gateway、完整回家路段、行程歷史刪除，以及「指定日期 → Gemini 對話 → ready → 開始 → Demo 城市事件 → 通知 → 完成」的一日行程 e2e。

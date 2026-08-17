@@ -91,7 +91,7 @@ describe("day itinerary contracts", () => {
           },
           after: {
             status: "active",
-            provider: "graphhopper",
+            provider: "google",
             profile: "car",
             routeId: "gh-detour",
             durationSeconds: 1200,

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { RoutePathSchema } from "../src/contracts";
 import { FixtureItineraryAgent } from "../src/lib/conversation/fixtures";
-import { FixtureGraphHopperProvider } from "../src/lib/routing/fixtures";
+import { FixtureGoogleRoutesProvider } from "../src/lib/routing/fixtures";
 import { RoutePlanner } from "../src/lib/routing/planner";
 import { DayItineraryPlanner } from "../src/lib/itinerary/planner";
 import { ItineraryOrchestrator } from "../src/lib/itinerary/orchestrator";
@@ -18,7 +18,7 @@ const direct = RoutePathSchema.parse({
   durationSeconds: 900,
   stationIds: [],
   instructions: [],
-  provider: "graphhopper",
+  provider: "google",
 });
 const detour = RoutePathSchema.parse({
   ...direct,
@@ -37,7 +37,7 @@ function service() {
     new FixtureItineraryAgent(),
     new DayItineraryPlanner(
       new RoutePlanner(
-        new FixtureGraphHopperProvider([
+        new FixtureGoogleRoutesProvider([
           { profile: "car", normal: [direct], rerouted: [detour] },
           { profile: "bike", normal: [direct], rerouted: [detour] },
           { profile: "foot", normal: [direct], rerouted: [detour] },

@@ -72,6 +72,8 @@ export const RouteSignalSchema = z.discriminatedUnion("kind", [
     stationId: z.string().min(1),
     polygon: RiskPolygonSchema,
     status: z.enum(["delayed", "closed", "suspended"]),
+    mode: z.enum(["metro", "bus", "thsr", "tra"]).optional(),
+    serviceId: z.string().min(1).optional(),
   }),
   z.object({
     ...SignalBaseSchema,
@@ -94,6 +96,21 @@ export const RouteSignalSchema = z.discriminatedUnion("kind", [
     polygon: RiskPolygonSchema,
     severity: z.enum(["warning", "blocked"]),
   }),
+  z.object({
+    ...SignalBaseSchema,
+    kind: z.literal("metro_crowding"),
+    stationId: z.string().min(1),
+    polygon: RiskPolygonSchema,
+    crowdLevel: z.enum(["normal", "high", "critical"]),
+    severity: z.enum(["warning", "critical"]),
+  }),
+  z.object({
+    ...SignalBaseSchema,
+    kind: z.literal("weather_warning"),
+    polygon: RiskPolygonSchema,
+    warningKind: z.enum(["heavy_rain", "typhoon", "strong_wind", "heat", "earthquake"]),
+    severity: z.enum(["advisory", "warning", "severe", "critical"]),
+  }),
 ]);
 export type RouteSignal = z.infer<typeof RouteSignalSchema>;
 
@@ -111,7 +128,7 @@ export const RoutePathSchema = z.object({
   durationSeconds: z.number().nonnegative(),
   stationIds: z.array(z.string().min(1)).default([]),
   instructions: z.array(RouteInstructionSchema).default([]),
-  provider: z.enum(["google", "graphhopper"]),
+  provider: z.literal("google"),
 });
 export type RoutePath = z.infer<typeof RoutePathSchema>;
 
@@ -136,6 +153,8 @@ export const RouteFindingCodeSchema = z.enum([
   "bike_dock_unavailable",
   "traffic_delay",
   "low_lighting",
+  "metro_crowding",
+  "weather_warning",
 ]);
 export type RouteFindingCode = z.infer<typeof RouteFindingCodeSchema>;
 

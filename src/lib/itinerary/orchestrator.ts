@@ -12,6 +12,8 @@ import {
   type ItineraryCommand,
   type ItineraryNotification,
   type RouteSignal,
+  type CityFeedQuery,
+  type CityFeedSnapshot,
 } from "../../contracts";
 import {
   ConversationAgentOutputInvalidError,
@@ -21,10 +23,10 @@ import {
 import { createItineraryAgent } from "../conversation/gemini";
 import { DayItineraryPlanner } from "./planner";
 import { ItineraryStore } from "./store";
-import { GraphHopperRouteProvider } from "../routing/graphhopper";
 import { GoogleRoutesProvider } from "../routing/google";
 import { RoutePlanner } from "../routing/planner";
 import { demoSignal } from "./demo";
+import { CityDataGateway } from "../city/gateway";
 
 export type ItineraryOperationResult = {
   itinerary: DayItinerarySnapshot;
@@ -53,6 +55,7 @@ export class ItineraryOrchestrator {
     private readonly store: ItineraryStore,
     private readonly agent: ItineraryAgent,
     private readonly planner: DayItineraryPlanner,
+    private readonly cityGateway: CityDataGateway = new CityDataGateway(),
   ) {}
 
   createSession(userId: string, date: string): DayItinerarySnapshot {
@@ -189,6 +192,17 @@ export class ItineraryOrchestrator {
 
   async demoRefresh(sessionId: string, scenario: DemoScenario): Promise<ItineraryOperationResult> {
     return this.refresh(sessionId, [demoSignal(scenario)]);
+  }
+
+  async refreshLive(
+    sessionId: string,
+    rawQuery: CityFeedQuery,
+  ): Promise<ItineraryOperationResult & { cityFeeds: CityFeedSnapshot }> {
+    const current = this.store.getSession(sessionId);
+    if (!current) throw new Error("找不到一天行程 session");
+    const cityFeeds = await this.cityGateway.refresh(rawQuery);
+    const signals = cityFeeds.signals.length ? cityFeeds.signals : current.signals;
+    return { ...(await this.refresh(sessionId, signals)), cityFeeds };
   }
 
   private parseOutput(output: ConversationAgentOutput): ConversationAgentOutput {
@@ -334,7 +348,6 @@ export class ItineraryOrchestrator {
 export const itineraryOrchestrator = new ItineraryOrchestrator(
   new ItineraryStore(),
   createItineraryAgent(),
-  new DayItineraryPlanner(
-    new RoutePlanner(new GoogleRoutesProvider(), new GraphHopperRouteProvider()),
-  ),
+  new DayItineraryPlanner(new RoutePlanner(new GoogleRoutesProvider())),
+  new CityDataGateway(),
 );

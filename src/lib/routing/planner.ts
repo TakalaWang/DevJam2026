@@ -21,16 +21,6 @@ export interface RouteProvider {
   calculate(input: RouteCalculationInput): Promise<RouteProviderResult>;
 }
 
-function requiresSpecialRouting(signals: RouteSignal[]): boolean {
-  return signals.some(
-    (signal) =>
-      signal.kind === "road_closure" ||
-      (signal.kind === "flood_zone" && signal.severity === "blocked") ||
-      (signal.kind === "station_disruption" && signal.status !== "delayed") ||
-      (signal.kind === "low_lighting" && signal.severity === "blocked"),
-  );
-}
-
 function hardAreaFinding(path: RoutePath, signal: RouteSignal): RouteFinding | undefined {
   if (
     signal.kind === "flood_zone" &&
@@ -78,6 +68,13 @@ function hardAreaFinding(path: RoutePath, signal: RouteSignal): RouteFinding | u
     });
   }
   return undefined;
+}
+
+function activeSignals(rawSignals: RouteSignal[]): RouteSignal[] {
+  const now = Date.now();
+  return rawSignals
+    .map((signal) => RouteSignalSchema.parse(signal))
+    .filter((signal) => !signal.expiresAt || Date.parse(signal.expiresAt) > now);
 }
 
 function bikeFinding(
@@ -175,6 +172,34 @@ function evaluate(request: RouteRequest, path: RoutePath, signals: RouteSignal[]
       );
       score += 300;
     }
+    if (
+      signal.kind === "metro_crowding" &&
+      routeIntersectsPolygon(path.coordinates, signal.polygon)
+    ) {
+      findings.push(
+        RouteFindingSchema.parse({
+          code: "metro_crowding",
+          severity: "warning",
+          signalId: signal.id,
+          message: `路線 ${path.id} 接近${signal.label}，捷運擁擠程度為${signal.crowdLevel}`,
+        }),
+      );
+      score += signal.crowdLevel === "critical" ? 900 : 500;
+    }
+    if (
+      signal.kind === "weather_warning" &&
+      routeIntersectsPolygon(path.coordinates, signal.polygon)
+    ) {
+      findings.push(
+        RouteFindingSchema.parse({
+          code: "weather_warning",
+          severity: "warning",
+          signalId: signal.id,
+          message: `路線 ${path.id} 位於${signal.label}，${signal.warningKind}警示仍有效`,
+        }),
+      );
+      score += signal.severity === "critical" || signal.severity === "severe" ? 900 : 400;
+    }
   }
   return {
     path,
@@ -199,10 +224,7 @@ function uniqueStrings(values: string[]): string[] {
 }
 
 export class RoutePlanner {
-  constructor(
-    private readonly provider: RouteProvider,
-    private readonly specialProvider?: RouteProvider,
-  ) {}
+  constructor(private readonly provider: RouteProvider) {}
 
   async plan(
     rawRequest: RouteRequest,
@@ -210,7 +232,7 @@ export class RoutePlanner {
     rawBaseline?: RoutePath,
   ): Promise<RoutePlan> {
     const request = RouteRequestSchema.parse(rawRequest);
-    const signals = rawSignals.map((signal) => RouteSignalSchema.parse(signal));
+    const signals = activeSignals(rawSignals);
     const providedBaseline =
       rawBaseline && request.profiles.includes(rawBaseline.profile) ? rawBaseline : undefined;
     const baselineResults = providedBaseline
@@ -225,7 +247,7 @@ export class RoutePlanner {
     const baselinePaths = uniquePaths(
       baselineResults.filter((result) => result.status === "ok").flatMap((result) => result.paths),
     );
-    if (!baselinePaths.length) {
+    if (!baselinePaths.length && !signals.length) {
       return this.unavailable(
         request,
         signals,
@@ -234,14 +256,10 @@ export class RoutePlanner {
       );
     }
 
-    const candidateProvider =
-      this.specialProvider && requiresSpecialRouting(signals)
-        ? this.specialProvider
-        : this.provider;
     const candidateResults = signals.length
       ? await Promise.all(
           request.profiles.map((profile) =>
-            candidateProvider.calculate(
+            this.provider.calculate(
               RouteCalculationInputSchema.parse({ request, profile, blockedSignals: signals }),
             ),
           ),

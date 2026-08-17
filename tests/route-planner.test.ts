@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { RoutePathSchema, RouteRequestSchema, RouteSignalSchema } from "../src/contracts";
-import { FixtureGraphHopperProvider } from "../src/lib/routing/fixtures";
+import { FixtureGoogleRoutesProvider } from "../src/lib/routing/fixtures";
 import { RoutePlanner, type RouteProvider } from "../src/lib/routing/planner";
 
 const origin = { latitude: 25, longitude: 121 };
@@ -28,7 +28,7 @@ const path = (
     durationSeconds,
     stationIds,
     instructions: [],
-    provider: "graphhopper",
+    provider: "google",
   });
 
 const directCar = path(
@@ -88,7 +88,7 @@ const signal = (input: object) =>
 
 function planner() {
   return new RoutePlanner(
-    new FixtureGraphHopperProvider([
+    new FixtureGoogleRoutesProvider([
       { profile: "car", normal: [directCar, detourCar], rerouted: [detourCar] },
       { profile: "bike", normal: [directBike], rerouted: [directBike] },
       { profile: "foot", normal: [directFoot], rerouted: [directFoot] },
@@ -146,8 +146,53 @@ describe("disruption-aware route planner", () => {
     if (result.status === "ok") expect(result.selected.profile).toBe("foot");
   });
 
+  it("uses another allowed Google mode before returning no_safe_route", async () => {
+    const fallbackProvider = new FixtureGoogleRoutesProvider([
+      { profile: "car", normal: [directCar], rerouted: [directCar] },
+      { profile: "foot", normal: [directFoot], rerouted: [directFoot] },
+    ]);
+    const result = await new RoutePlanner(fallbackProvider).plan(request(["car", "foot"]), [
+      signal({ kind: "road_closure", polygon: blockedPolygon, severity: "blocked" }),
+    ]);
+
+    expect(result.status).toBe("ok");
+    if (result.status === "ok") expect(result.selected.profile).toBe("foot");
+  });
+
+  it("can use a Google reroute when the baseline query is unavailable", async () => {
+    const provider: RouteProvider = {
+      calculate: async ({ blockedSignals }) =>
+        blockedSignals.length
+          ? { status: "ok", paths: [detourCar] }
+          : { status: "unavailable", reason: "Google baseline 暫時沒有結果" },
+    };
+    const result = await new RoutePlanner(provider).plan(request(), [
+      signal({ kind: "road_closure", polygon: blockedPolygon, severity: "blocked" }),
+    ]);
+
+    expect(result.status).toBe("ok");
+    if (result.status === "ok") expect(result.selected.id).toBe("car-detour");
+  });
+
+  it("does not let an expired city signal veto a current Google route", async () => {
+    const result = await planner().plan(request(), [
+      signal({
+        kind: "flood_zone",
+        polygon: blockedPolygon,
+        severity: "blocked",
+        expiresAt: "2020-01-01T00:00:00+08:00",
+      }),
+    ]);
+
+    expect(result.status).toBe("ok");
+    if (result.status === "ok") {
+      expect(result.selected.id).toBe("car-direct");
+      expect(result.signals).toHaveLength(0);
+    }
+  });
+
   it("returns no_safe_route when every candidate is blocked", async () => {
-    const blockedProvider = new FixtureGraphHopperProvider([
+    const blockedProvider = new FixtureGoogleRoutesProvider([
       { profile: "car", normal: [directCar], rerouted: [directCar] },
     ]);
     const result = await new RoutePlanner(blockedProvider).plan(request(), [
@@ -156,28 +201,19 @@ describe("disruption-aware route planner", () => {
     expect(result.status).toBe("no_safe_route");
   });
 
-  it("uses the special provider only for hard city events", async () => {
-    const primaryCounter = { value: 0 };
-    const specialCounter = { value: 0 };
-    const provider = (path: typeof directCar, counter: { value: number }): RouteProvider => ({
+  it("uses the same Google provider for normal and disruption candidates", async () => {
+    const counter = { value: 0 };
+    const provider: RouteProvider = {
       calculate: async () => {
         counter.value += 1;
-        return { status: "ok", paths: [path] };
+        return { status: "ok", paths: [directCar] };
       },
-    });
-    const plannerWithSpecialProvider = new RoutePlanner(
-      provider(directCar, primaryCounter),
-      provider(detourCar, specialCounter),
-    );
+    };
 
-    await plannerWithSpecialProvider.plan(request(), []);
-    expect(primaryCounter.value).toBe(1);
-    expect(specialCounter.value).toBe(0);
-
-    await plannerWithSpecialProvider.plan(request(), [
+    await new RoutePlanner(provider).plan(request(), []);
+    await new RoutePlanner(provider).plan(request(), [
       signal({ kind: "road_closure", polygon: blockedPolygon, severity: "blocked" }),
     ]);
-    expect(primaryCounter.value).toBe(2);
-    expect(specialCounter.value).toBe(1);
+    expect(counter.value).toBe(3);
   });
 });
