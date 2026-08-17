@@ -1,12 +1,7 @@
 import { z } from "zod";
 import { RoutePointSchema } from "./route";
 
-export const PlanningFactStatusSchema = z.enum([
-  "missing",
-  "provided",
-  "confirmed",
-  "assumed",
-]);
+export const PlanningFactStatusSchema = z.enum(["missing", "provided", "confirmed", "assumed"]);
 export type PlanningFactStatus = z.infer<typeof PlanningFactStatusSchema>;
 
 export const TransportPreferenceSchema = z.enum([

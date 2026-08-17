@@ -86,11 +86,7 @@ async function sendMessage(orchestrator: ItineraryOrchestrator, id: string, mess
 
 async function planConcert(orchestrator: ItineraryOrchestrator, id: string) {
   await sendMessage(orchestrator, id, "我今天想去聽演唱會");
-  await sendMessage(
-    orchestrator,
-    id,
-    "從台北車站出發，10點出門，搭大眾運輸，晚上十點前回家。",
-  );
+  await sendMessage(orchestrator, id, "從台北車站出發，10點出門，搭大眾運輸，晚上十點前回家。");
   return sendMessage(orchestrator, id, "確認，就這樣安排");
 }
 
