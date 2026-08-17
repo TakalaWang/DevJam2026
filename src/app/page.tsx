@@ -649,7 +649,6 @@ export default function Page() {
   const [draft, setDraft] = useState("");
   const [planDate, setPlanDate] = useState(todayDate);
   const [loading, setLoading] = useState(false);
-  const [initializing, setInitializing] = useState(true);
   const [error, setError] = useState("");
   const [demoScenario, setDemoScenario] = useState<DemoScenario>("flood");
   const [latestNotification, setLatestNotification] = useState<ItineraryNotification>();
@@ -732,8 +731,7 @@ export default function Page() {
         const storedId = window.localStorage.getItem(sessionStorageKey);
         if (storedId && items.some((item) => item.id === storedId)) await selectPlan(storedId);
       })
-      .catch((requestError: Error) => setError(requestError.message))
-      .finally(() => setInitializing(false));
+      .catch((requestError: Error) => setError(requestError.message));
     // This runs once for the local workbench; selecting a plan is the only follow-up load.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -984,7 +982,7 @@ export default function Page() {
           <span>{routaSubtitle}</span>
         </div>
       </header>
-      <div className="workbench-grid">
+      <div className={`workbench-grid ${itinerary ? "" : "without-itinerary"}`}>
         <aside className="history-sidebar" aria-label="行程紀錄">
           <div className="sidebar-heading">
             <div>
@@ -1112,135 +1110,125 @@ export default function Page() {
           )}
         </section>
 
-        <section className="itinerary-panel" aria-label="目前行程安排">
-          {initializing ? (
-            <div className="empty-state">正在讀取本機行程紀錄…</div>
-          ) : !itinerary ? (
-            <div className="empty-state">
-              <span className="empty-mark">＋</span>
-              <strong>右側會顯示完整行程</strong>
-              <span>建立日期並開始對話後，這裡會列出每一段交通。</span>
+        {itinerary && (
+          <section className="itinerary-panel" aria-label="目前行程安排">
+            <div className="itinerary-heading">
+              <div>
+                <h2>{itinerary.date}</h2>
+              </div>
+              {readyToStart && blockedLegCount === 0 && (
+                <button
+                  className="heading-action"
+                  disabled={loading || !isToday}
+                  onClick={() => void startPlan()}
+                  type="button"
+                >
+                  {isToday ? "開始行程" : `請於 ${itinerary.date} 開始`} <span>→</span>
+                </button>
+              )}
             </div>
-          ) : (
-            <>
-              <div className="itinerary-heading">
-                <div>
-                  <h2>{itinerary.date}</h2>
+            {judgeDemoPhase !== "idle" && (
+              <div className={`judge-demo-panel ${judgeDemoPhase}`}>
+                <div className="judge-demo-heading">
+                  <div>
+                    <p className="kicker">JUDGE DEMO · 最長 02:00</p>
+                    <strong>{judgeDemoPhaseLabel(judgeDemoPhase)}</strong>
+                  </div>
+                  <span className="judge-demo-clock">
+                    {formatDemoElapsed(judgeDemoElapsedMs)} / 2:00
+                  </span>
                 </div>
-                {readyToStart && blockedLegCount === 0 && (
-                  <button
-                    className="heading-action"
-                    disabled={loading || !isToday}
-                    onClick={() => void startPlan()}
-                    type="button"
-                  >
-                    {isToday ? "開始行程" : `請於 ${itinerary.date} 開始`} <span>→</span>
+                <div className="judge-demo-progress" aria-hidden="true">
+                  <span
+                    style={{
+                      width: `${Math.min(100, (judgeDemoElapsedMs / JUDGE_DEMO_TOTAL_MS) * 100)}%`,
+                    }}
+                  />
+                </div>
+                <p className="judge-demo-copy">{judgeDemoPhaseDescription(judgeDemoPhase)}</p>
+                {isJudgeDemoRunning(judgeDemoPhase) && (
+                  <button className="judge-demo-stop" onClick={stopJudgeDemo} type="button">
+                    停止 Demo
                   </button>
                 )}
               </div>
-              {judgeDemoPhase !== "idle" && (
-                <div className={`judge-demo-panel ${judgeDemoPhase}`}>
-                  <div className="judge-demo-heading">
-                    <div>
-                      <p className="kicker">JUDGE DEMO · 最長 02:00</p>
-                      <strong>{judgeDemoPhaseLabel(judgeDemoPhase)}</strong>
-                    </div>
-                    <span className="judge-demo-clock">
-                      {formatDemoElapsed(judgeDemoElapsedMs)} / 2:00
-                    </span>
-                  </div>
-                  <div className="judge-demo-progress" aria-hidden="true">
-                    <span
-                      style={{
-                        width: `${Math.min(100, (judgeDemoElapsedMs / JUDGE_DEMO_TOTAL_MS) * 100)}%`,
-                      }}
-                    />
-                  </div>
-                  <p className="judge-demo-copy">{judgeDemoPhaseDescription(judgeDemoPhase)}</p>
-                  {isJudgeDemoRunning(judgeDemoPhase) && (
-                    <button className="judge-demo-stop" onClick={stopJudgeDemo} type="button">
-                      停止 Demo
-                    </button>
-                  )}
-                </div>
-              )}
-              {notification && <NotificationCard notification={notification} />}
-              <div className="route-summary">
-                <div>
-                  <strong>{itinerary.stops.length} 個目的地</strong>
-                  <span>
-                    {itinerary.legs.length} 段交通 ·{" "}
-                    {itinerary.returnHome ? "包含回家" : "不返回起點"}
-                  </span>
-                </div>
-                <span className="route-source">GOOGLE ROUTES</span>
+            )}
+            {notification && <NotificationCard notification={notification} />}
+            <div className="route-summary">
+              <div>
+                <strong>{itinerary.stops.length} 個目的地</strong>
+                <span>
+                  {itinerary.legs.length} 段交通 ·{" "}
+                  {itinerary.returnHome ? "包含回家" : "不返回起點"}
+                </span>
               </div>
-              <RouteMap key={`${itinerary.id}-${itinerary.revision}`} snapshot={itinerary} />
-              <StopTimeline snapshot={itinerary} />
-              {readyToStart && blockedLegCount === 0 && (
-                <button
-                  className="judge-demo-launch"
-                  disabled={loading || !isToday || isJudgeDemoRunning(judgeDemoPhase)}
-                  onClick={runJudgeDemo}
-                  type="button"
-                >
-                  播放 2 分鐘評審 Demo <span>▶</span>
-                </button>
-              )}
-              {readyToStart && blockedLegCount > 0 && (
-                <div className="start-block">
-                  <p className="start-blocked">
-                    Routa 智旅已完成行程內容，但目前有 {blockedLegCount}{" "}
-                    段交通沒有可用路線，請先確認 Google Routes API 設定。
-                  </p>
+              <span className="route-source">GOOGLE ROUTES</span>
+            </div>
+            <RouteMap key={`${itinerary.id}-${itinerary.revision}`} snapshot={itinerary} />
+            <StopTimeline snapshot={itinerary} />
+            {readyToStart && blockedLegCount === 0 && (
+              <button
+                className="judge-demo-launch"
+                disabled={loading || !isToday || isJudgeDemoRunning(judgeDemoPhase)}
+                onClick={runJudgeDemo}
+                type="button"
+              >
+                播放 2 分鐘評審 Demo <span>▶</span>
+              </button>
+            )}
+            {readyToStart && blockedLegCount > 0 && (
+              <div className="start-block">
+                <p className="start-blocked">
+                  {`Routa 智旅已完成行程內容，但目前有 ${blockedLegCount} 段交通沒有可用路線，`}
+                  請先確認 Google Routes API 設定。
+                </p>
+              </div>
+            )}
+            {itinerary.status === "active" && (
+              <div className="monitor-block">
+                <div>
+                  <p className="kicker">LIVE MONITOR AGENT</p>
+                  <strong>持續監測城市狀況</strong>
+                  <span>路況、淹水、車站與 YouBike 更新會從這裡重新規劃。</span>
                 </div>
-              )}
-              {itinerary.status === "active" && (
-                <div className="monitor-block">
-                  <div>
-                    <p className="kicker">LIVE MONITOR AGENT</p>
-                    <strong>持續監測城市狀況</strong>
-                    <span>路況、淹水、車站與 YouBike 更新會從這裡重新規劃。</span>
-                  </div>
-                  <div className="demo-controls">
-                    <label htmlFor="demo-scenario">Demo 事件</label>
-                    <select
-                      id="demo-scenario"
-                      onChange={(event) => setDemoScenario(event.target.value as DemoScenario)}
-                      value={demoScenario}
-                    >
-                      <option value="flood">淹水</option>
-                      <option value="road_closure">道路封閉</option>
-                      <option value="station_disruption">車站中斷</option>
-                      <option value="bike_unavailable">YouBike 無車</option>
-                    </select>
-                    <button
-                      className="secondary-action"
-                      disabled={loading}
-                      onClick={() => void simulateEvent()}
-                      type="button"
-                    >
-                      模擬更新並通知
-                    </button>
-                  </div>
+                <div className="demo-controls">
+                  <label htmlFor="demo-scenario">Demo 事件</label>
+                  <select
+                    id="demo-scenario"
+                    onChange={(event) => setDemoScenario(event.target.value as DemoScenario)}
+                    value={demoScenario}
+                  >
+                    <option value="flood">淹水</option>
+                    <option value="road_closure">道路封閉</option>
+                    <option value="station_disruption">車站中斷</option>
+                    <option value="bike_unavailable">YouBike 無車</option>
+                  </select>
                   <button
-                    className="complete-action"
+                    className="secondary-action"
                     disabled={loading}
-                    onClick={() => void completePlan()}
+                    onClick={() => void simulateEvent()}
                     type="button"
                   >
-                    完成今日行程
+                    模擬更新並通知
                   </button>
                 </div>
-              )}
-              {itinerary.status === "completed" && (
-                <div className="completed-block">
-                  <span className="status-dot" /> 行程已完成，所有安排已回到起點。
-                </div>
-              )}
-            </>
-          )}
-        </section>
+                <button
+                  className="complete-action"
+                  disabled={loading}
+                  onClick={() => void completePlan()}
+                  type="button"
+                >
+                  完成今日行程
+                </button>
+              </div>
+            )}
+            {itinerary.status === "completed" && (
+              <div className="completed-block">
+                <span className="status-dot" /> 行程已完成，所有安排已回到起點。
+              </div>
+            )}
+          </section>
+        )}
       </div>
       {error && (
         <p className="error-text" role="alert">

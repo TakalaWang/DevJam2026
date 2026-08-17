@@ -25,4 +25,10 @@ describe("workbench independent scrolling layout", () => {
     expect(pageSource).not.toContain("planning-checklist");
     expect(stylesheet).not.toContain("planning-checklist");
   });
+
+  it("hides the itinerary panel until a plan exists", () => {
+    expect(pageSource).toContain('"without-itinerary"');
+    expect(pageSource).toMatch(/\{itinerary && \(\s*<section className="itinerary-panel"/);
+    expect(pageSource).not.toContain("右側會顯示完整行程");
+  });
 });
