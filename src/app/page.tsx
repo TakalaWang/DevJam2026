@@ -252,7 +252,6 @@ function RouteMap({ snapshot }: { snapshot: DayItinerarySnapshot }) {
     traveler?: GoogleMarkerInstance;
   } | null>(null);
   const [mapStatus, setMapStatus] = useState<"loading" | "ready" | "fallback">("loading");
-  const [mapError, setMapError] = useState("");
   const points = useMemo(() => {
     const stops = snapshot.stops.map((stop) => stop.location);
     return snapshot.origin ? [snapshot.origin, ...stops] : stops;
@@ -282,7 +281,6 @@ function RouteMap({ snapshot }: { snapshot: DayItinerarySnapshot }) {
     }
 
     setMapStatus("loading");
-    setMapError("");
     void loadGoogleMaps(apiKey)
       .then((maps) => {
         if (disposed || !mapElementRef.current) return;
@@ -390,9 +388,8 @@ function RouteMap({ snapshot }: { snapshot: DayItinerarySnapshot }) {
         overlaysRef.current = { markers, polylines, ...(traveler ? { traveler } : {}) };
         setMapStatus("ready");
       })
-      .catch((error: unknown) => {
+      .catch(() => {
         if (disposed) return;
-        setMapError(error instanceof Error ? error.message : "Google Maps 載入失敗");
         setMapStatus("fallback");
       });
 
@@ -406,7 +403,7 @@ function RouteMap({ snapshot }: { snapshot: DayItinerarySnapshot }) {
     return (
       <div className="map-fallback-wrap">
         <SvgRouteMap snapshot={snapshot} caption="Google Routes · 示意圖" />
-        {mapError && <p className="map-fallback-note">{mapError}</p>}
+        <p className="map-fallback-note">此段交通不支援 Google Maps，已改用行程示意圖。</p>
       </div>
     );
   }
