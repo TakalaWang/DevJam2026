@@ -180,6 +180,33 @@ describe("day itinerary orchestration", () => {
     expect(started.itinerary.currentStopId).toBe(started.itinerary.stops[0]?.id);
   });
 
+  it("routes the return leg to the confirmed return location", async () => {
+    const orchestrator = service();
+    const itinerary = orchestrator.createSession("user-1", today);
+    const proposed = await planConcert(orchestrator, itinerary);
+    const hotel = {
+      label: "駁二附近飯店",
+      coordinate: { latitude: 22.619, longitude: 120.2818 },
+    };
+    const replanned = await new DayItineraryPlanner(
+      new RoutePlanner(new DemoRouteProvider()),
+    ).rebuild(
+      {
+        ...proposed.itinerary,
+        planningFacts: {
+          ...proposed.itinerary.planningFacts,
+          returnPlan: {
+            status: "confirmed",
+            value: { returnHome: true, location: hotel },
+          },
+        },
+      },
+      [],
+    );
+
+    expect(replanned.legs.at(-1)?.route?.coordinates.at(-1)).toEqual(hotel.coordinate);
+  });
+
   it("refreshes active legs and stores an update notification", async () => {
     const orchestrator = service();
     const itinerary = orchestrator.createSession("user-1", today);

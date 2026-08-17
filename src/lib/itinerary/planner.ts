@@ -3,6 +3,7 @@ import {
   ItineraryTimestampSchema,
   TravelLegSchema,
   RouteRequestSchema,
+  itineraryReturnLocation,
   type DayItinerarySnapshot,
   type ItineraryStop,
   ItineraryRouteChangeSchema,
@@ -57,10 +58,11 @@ export class DayItineraryPlanner {
       });
     }
 
+    const returnLocation = itineraryReturnLocation(snapshot);
     const points = [
       { id: "origin", point: snapshot.origin },
       ...snapshot.stops.map((stop) => ({ id: stop.id, point: stop.location })),
-      ...(snapshot.returnHome ? [{ id: "home", point: snapshot.origin }] : []),
+      ...(returnLocation ? [{ id: "home", point: returnLocation }] : []),
     ];
     const legs: TravelLeg[] = [];
     let departureAt = snapshot.startAt ? Date.parse(snapshot.startAt) : undefined;
@@ -167,7 +169,8 @@ export class DayItineraryPlanner {
     signals: RouteSignal[],
   ): ItineraryRouteChange[] {
     const label = (snapshot: DayItinerarySnapshot, stopId: string): string => {
-      if (stopId === "origin" || stopId === "home") return snapshot.origin?.label ?? "出發地";
+      if (stopId === "home") return itineraryReturnLocation(snapshot)?.label ?? "回程地點";
+      if (stopId === "origin") return snapshot.origin?.label ?? "出發地";
       return snapshot.stops.find((stop) => stop.id === stopId)?.title ?? stopId;
     };
     const state = (leg: TravelLeg) => ({

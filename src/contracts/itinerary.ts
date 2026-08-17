@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { RoutePointSchema, RouteRequestSchema, RouteSignalSchema, RoutePathSchema } from "./route";
+import {
+  RoutePointSchema,
+  RouteRequestSchema,
+  RouteSignalSchema,
+  RoutePathSchema,
+  type RoutePoint,
+} from "./route";
 import { EmptyPlanningFacts, PlanningFactsSchema, PlanningPhaseSchema } from "./planning";
 
 export const CalendarDateSchema = z
@@ -176,6 +182,11 @@ export const DayItinerarySnapshotSchema = z
     }
   });
 export type DayItinerarySnapshot = z.infer<typeof DayItinerarySnapshotSchema>;
+
+export function itineraryReturnLocation(snapshot: DayItinerarySnapshot): RoutePoint | undefined {
+  if (!snapshot.returnHome) return undefined;
+  return snapshot.planningFacts.returnPlan.value?.location ?? snapshot.origin;
+}
 
 export const ItineraryUpdateSchema = z.object({
   id: z.string().min(1),

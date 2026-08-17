@@ -31,4 +31,17 @@ describe("workbench independent scrolling layout", () => {
     expect(pageSource).toMatch(/\{itinerary && \(\s*<section className="itinerary-panel"/);
     expect(pageSource).not.toContain("右側會顯示完整行程");
   });
+
+  it("confirms a pending plan from the conversation", () => {
+    expect(pageSource).toContain('className="confirmation-action"');
+    expect(pageSource).toContain('className="confirmation-action-mark"');
+    expect(pageSource).toContain('sendMessage("確認，就這樣安排")');
+    expect(pageSource).not.toContain('appendMessage("user", "這個安排可以，請幫我開始導航');
+  });
+
+  it("renders assistant messages as Markdown while keeping user messages plain", () => {
+    expect(pageSource).toContain('import ReactMarkdown from "react-markdown";');
+    expect(pageSource).toContain("<ReactMarkdown>{message.content}</ReactMarkdown>");
+    expect(pageSource).toContain("<p>{message.content}</p>");
+  });
 });

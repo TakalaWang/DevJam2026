@@ -7,6 +7,7 @@ import {
   DayItineraryListResponseSchema,
   DayItineraryResponseSchema,
   DeleteDayItineraryResponseSchema,
+  itineraryReturnLocation,
   type ConversationRun,
   type DayItinerarySnapshot,
   type DayItinerarySummary,
@@ -189,15 +190,14 @@ function mapPosition(point: RoutePoint, points: RoutePoint[]): [number, number] 
   return [x, y];
 }
 
-function SvgRouteMap({
-  snapshot,
-}: {
-  snapshot: DayItinerarySnapshot;
-}) {
+function SvgRouteMap({ snapshot }: { snapshot: DayItinerarySnapshot }) {
   const points = useMemo(() => {
     const stops = snapshot.stops.map((stop) => stop.location);
-    return snapshot.origin ? [snapshot.origin, ...stops] : stops;
-  }, [snapshot.origin, snapshot.stops]);
+    const returnPoint = itineraryReturnLocation(snapshot);
+    return snapshot.origin
+      ? [snapshot.origin, ...stops, ...(returnPoint ? [returnPoint] : [])]
+      : stops;
+  }, [snapshot]);
   const navigation = activeNavigation(snapshot);
   const activeCoordinates = navigation?.leg.route?.coordinates ?? [];
   const coordinates = activeCoordinates.length
@@ -212,7 +212,7 @@ function SvgRouteMap({
     isNavigating && navigationStart && navigationEnd
       ? [
           snapshot.currentLocation ?? { label: "目前位置", coordinate: navigationStart },
-          navigation?.destination?.location ?? { label: "下一站", coordinate: navigationEnd },
+          navigation?.destination ?? { label: "下一站", coordinate: navigationEnd },
         ]
       : points;
   const boundsPoints = isNavigating ? drawablePoints : points;
@@ -271,8 +271,11 @@ function RouteMap({ snapshot }: { snapshot: DayItinerarySnapshot }) {
   const [mapStatus, setMapStatus] = useState<"loading" | "ready" | "fallback">("loading");
   const points = useMemo(() => {
     const stops = snapshot.stops.map((stop) => stop.location);
-    return snapshot.origin ? [snapshot.origin, ...stops] : stops;
-  }, [snapshot.origin, snapshot.stops]);
+    const returnPoint = itineraryReturnLocation(snapshot);
+    return snapshot.origin
+      ? [snapshot.origin, ...stops, ...(returnPoint ? [returnPoint] : [])]
+      : stops;
+  }, [snapshot]);
   const routeCoordinates = useMemo(
     () => snapshot.legs.flatMap((leg) => leg.route?.coordinates ?? []),
     [snapshot.legs],
@@ -551,8 +554,10 @@ function activeNavigation(snapshot: DayItinerarySnapshot) {
   if (snapshot.status !== "active") return undefined;
   const leg = snapshot.legs.find((candidate) => candidate.status === "active");
   if (!leg) return undefined;
-  const destination = snapshot.stops.find((stop) => stop.id === leg.toStopId);
-  return { leg, destination };
+  const stop = snapshot.stops.find((candidate) => candidate.id === leg.toStopId);
+  const destination = leg.toStopId === "home" ? itineraryReturnLocation(snapshot) : stop?.location;
+  const destinationLabel = leg.toStopId === "home" ? destination?.label : stop?.title;
+  return { leg, destination, destinationLabel };
 }
 
 function NavigationOverlay({ snapshot }: { snapshot: DayItinerarySnapshot }) {
@@ -563,7 +568,7 @@ function NavigationOverlay({ snapshot }: { snapshot: DayItinerarySnapshot }) {
     <div className="map-navigation-badge" aria-label="目前導航狀態">
       <span className="map-navigation-arrow" aria-hidden="true" />
       <span>
-        <strong>前往 {navigation.destination?.title ?? "下一站"}</strong>
+        <strong>前往 {navigation.destinationLabel ?? "下一站"}</strong>
         <small>
           {routeModeLabel(navigation.leg.route)} · 約{" "}
           {formatDuration(navigation.leg.route?.durationSeconds)}
@@ -575,6 +580,7 @@ function NavigationOverlay({ snapshot }: { snapshot: DayItinerarySnapshot }) {
 
 function StopTimeline({ snapshot }: { snapshot: DayItinerarySnapshot }) {
   const returnLeg = snapshot.legs.at(-1)?.toStopId === "home" ? snapshot.legs.at(-1) : undefined;
+  const returnDestination = itineraryReturnLocation(snapshot);
   const activityLegs = returnLeg ? snapshot.legs.slice(0, -1) : snapshot.legs;
   return (
     <div className="timeline">
@@ -608,15 +614,15 @@ function StopTimeline({ snapshot }: { snapshot: DayItinerarySnapshot }) {
           </div>
         </div>
       ))}
-      {returnLeg && snapshot.origin && (
+      {returnLeg && returnDestination && (
         <div className="timeline-group return-group">
           <LegLine leg={returnLeg} active={returnLeg.status === "active"} />
           <div className="timeline-row">
             <span className="timeline-dot origin" />
             <div className="timeline-copy">
               <small>結束行程</small>
-              <strong>回到 {snapshot.origin.label}</strong>
-              <span>所有行程完成後返回起點</span>
+              <strong>回到 {returnDestination.label}</strong>
+              <span>所有行程完成後返回指定地點</span>
             </div>
           </div>
         </div>
@@ -964,6 +970,10 @@ export default function Page() {
   const awaitingConfirmation =
     itinerary?.planningPhase === "awaiting_confirmation" &&
     itinerary.planningFacts.confirmation === "pending";
+  const confirmationMessageId =
+    awaitingConfirmation && !loading
+      ? messages.findLast((message) => message.role === "assistant")?.id
+      : undefined;
   const blockedLegCount = itinerary?.legs.filter((leg) => leg.status === "blocked").length ?? 0;
   const isToday = itinerary?.date === todayDate();
   const notification = latestNotification ?? itinerary?.notifications.at(-1);
@@ -1050,7 +1060,12 @@ export default function Page() {
               </div>
               <div className="conversation-log" aria-live="polite">
                 {messages.map((message) => (
-                  <div className={`message ${message.role}`} key={message.id}>
+                  <div
+                    className={`message ${message.role} ${
+                      message.id === confirmationMessageId ? "with-confirmation" : ""
+                    }`}
+                    key={message.id}
+                  >
                     <span className="message-label">
                       {message.role === "assistant" ? routaAssistantLabel : "YOU"}
                     </span>
@@ -1060,6 +1075,19 @@ export default function Page() {
                       </div>
                     ) : (
                       <p>{message.content}</p>
+                    )}
+                    {message.id === confirmationMessageId && (
+                      <button
+                        aria-label="確認行程"
+                        className="confirmation-action"
+                        disabled={loading}
+                        onClick={() => void sendMessage("確認，就這樣安排")}
+                        type="button"
+                      >
+                        <span aria-hidden="true" className="confirmation-action-mark" />
+                        <span>確認行程</span>
+                        <span aria-hidden="true">→</span>
+                      </button>
                     )}
                   </div>
                 ))}
@@ -1073,18 +1101,6 @@ export default function Page() {
                   </div>
                 )}
               </div>
-              {awaitingConfirmation && (
-                <div className="conversation-confirmation">
-                  <button
-                    className="confirmation-action"
-                    disabled={loading}
-                    onClick={() => void sendMessage("確認，就這樣安排")}
-                    type="button"
-                  >
-                    確認行程 <span>→</span>
-                  </button>
-                </div>
-              )}
               <form className="composer" onSubmit={submitMessage}>
                 <textarea
                   aria-label="輸入行程討論"

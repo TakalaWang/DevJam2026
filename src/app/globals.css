@@ -3220,29 +3220,67 @@ body,
   background: transparent;
 }
 
-.conversation-confirmation {
-  display: flex;
-  justify-content: flex-start;
-  padding: 0 0 12px;
+.message.assistant.with-confirmation {
+  position: relative;
+  padding-bottom: 58px;
 }
 
 .confirmation-action {
-  min-height: 38px;
-  padding: 8px 12px;
-  border: 1px solid var(--mint);
+  position: absolute;
+  right: 13px;
+  bottom: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 4px 10px 4px 6px;
+  border: 1px solid #79a6a4;
+  border-radius: 999px;
   color: var(--mint-deep);
-  background: var(--panel-soft);
+  background: #f8fcf8;
   cursor: pointer;
   font-size: 11px;
   font-weight: 700;
 }
 
-.confirmation-action span {
-  margin-left: 6px;
-  font-size: 15px;
+.confirmation-action-mark {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  border: 1px solid var(--mint);
+  border-radius: 50%;
+}
+
+.confirmation-action-mark::before {
+  position: absolute;
+  inset: 4px;
+  content: "";
+  border: 1px solid var(--mint);
+  border-radius: 50%;
+}
+
+.confirmation-action-mark::after {
+  position: absolute;
+  inset: 9px;
+  content: "";
+  border-radius: 50%;
+  background: var(--mint);
 }
 
 .confirmation-action:hover:not(:disabled) {
   color: #ffffff;
   background: var(--mint);
+}
+
+.confirmation-action:hover:not(:disabled) .confirmation-action-mark {
+  border-color: #ffffff;
+}
+
+.confirmation-action:hover:not(:disabled) .confirmation-action-mark::before {
+  border-color: #ffffff;
+}
+
+.confirmation-action:hover:not(:disabled) .confirmation-action-mark::after {
+  background: #ffffff;
 }
