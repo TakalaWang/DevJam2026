@@ -4,7 +4,9 @@ export function isComposingEnter(
   event: { key: string; isComposing?: boolean; keyCode?: number },
   composing = false,
 ): boolean {
-  return event.key === "Enter" && (event.isComposing === true || composing || event.keyCode === 229);
+  return (
+    event.key === "Enter" && (event.isComposing === true || composing || event.keyCode === 229)
+  );
 }
 
 export function composerKeyAction(event: {

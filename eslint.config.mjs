@@ -7,5 +7,12 @@ export default defineConfig([
   ...nextVitals,
   ...nextTs,
   prettier,
-  globalIgnores([".next/**", ".worktrees/**", "out/**", "build/**", "next-env.d.ts"]),
+  globalIgnores([
+    ".next/**",
+    ".worktrees/**",
+    "out/**",
+    "build/**",
+    "output/playwright/**",
+    "next-env.d.ts",
+  ]),
 ]);
