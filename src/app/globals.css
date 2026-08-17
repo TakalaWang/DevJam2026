@@ -2765,3 +2765,57 @@ body,
   background: #2f8f8b;
   box-shadow: 0 0 8px rgba(47, 143, 139, 0.3);
 }
+
+/* Routa workbench scroll model — fixed shell, independent desktop columns */
+@media (min-width: 781px) {
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .workbench {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .workbench-header {
+    flex: 0 0 70px;
+  }
+
+  .workbench-grid {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .history-sidebar,
+  .itinerary-panel {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+
+  .conversation-panel {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .conversation-log {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+
+  .composer,
+  .conversation-note,
+  .workbench-footer {
+    flex: 0 0 auto;
+  }
+}
