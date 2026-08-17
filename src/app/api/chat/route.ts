@@ -1,47 +1,43 @@
 import { createGeminiStream, errorFrom, interactionIdFrom, textFrom } from "../../../lib/gemini";
+import {
+  ApiErrorResponseSchema,
+  ChatRequestSchema,
+  ChatSseEventSchema,
+  type ChatSseEvent,
+} from "../../../contracts";
 
 export const runtime = "nodejs";
 
-const MAX_MESSAGE_LENGTH = 4_000;
-
-type ChatRequest = { message?: unknown; interactionId?: unknown };
-
-function sse(event: string, data: unknown): string {
-  return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+function sse(event: ChatSseEvent["event"], data: ChatSseEvent["data"]): string {
+  const parsed = ChatSseEventSchema.parse({ event, data });
+  return `event: ${parsed.event}\ndata: ${JSON.stringify(parsed.data)}\n\n`;
 }
 
 function errorResponse(message: string, status: number): Response {
-  return Response.json({ error: message }, { status });
+  return Response.json(ApiErrorResponseSchema.parse({ error: message }), { status });
 }
 
 export async function POST(request: Request): Promise<Response> {
-  let body: ChatRequest;
+  let rawBody: unknown;
   try {
-    body = (await request.json()) as ChatRequest;
+    rawBody = await request.json();
   } catch {
     return errorResponse("請求格式必須是 JSON", 400);
   }
 
-  if (typeof body.message !== "string" || !body.message.trim()) {
-    return errorResponse("請輸入訊息", 400);
+  const parsedBody = ChatRequestSchema.safeParse(rawBody);
+  if (!parsedBody.success) {
+    const issue = parsedBody.error.issues[0];
+    return errorResponse(issue?.message ?? "請求格式錯誤", issue?.code === "too_big" ? 413 : 400);
   }
-  if (body.message.length > MAX_MESSAGE_LENGTH) {
-    return errorResponse(`訊息不可超過 ${MAX_MESSAGE_LENGTH} 個字元`, 413);
-  }
-  if (body.interactionId !== undefined && typeof body.interactionId !== "string") {
-    return errorResponse("interactionId 格式錯誤", 400);
-  }
+  const body = parsedBody.data;
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return errorResponse("尚未設定 GEMINI_API_KEY", 503);
 
   let upstream: Awaited<ReturnType<typeof createGeminiStream>>;
   try {
-    upstream = await createGeminiStream(
-      apiKey,
-      body.message.trim(),
-      body.interactionId as string | undefined,
-    );
+    upstream = await createGeminiStream(apiKey, body.message, body.interactionId);
   } catch {
     return errorResponse("Gemini 服務暫時無法使用", 502);
   }

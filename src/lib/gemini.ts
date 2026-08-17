@@ -1,12 +1,13 @@
 import { GoogleGenAI } from "@google/genai";
+import { z } from "zod";
 
-type InteractionEvent = {
-  event_type: string;
-  interaction?: { id: string };
-  interaction_id?: string;
-  delta?: { type: string; text?: string };
-  error?: { message?: string };
-};
+const InteractionEventSchema = z.object({
+  event_type: z.string(),
+  interaction: z.object({ id: z.string().min(1) }).optional(),
+  interaction_id: z.string().min(1).optional(),
+  delta: z.object({ type: z.string(), text: z.string().optional() }).optional(),
+  error: z.object({ message: z.string().optional() }).optional(),
+});
 
 export const GEMINI_MODEL = "gemini-3.6-flash";
 export const CHAT_SYSTEM_INSTRUCTION =
@@ -24,7 +25,9 @@ export function createGeminiStream(apiKey: string, message: string, interactionI
   });
 }
 
-export function interactionIdFrom(event: InteractionEvent): string | undefined {
+export function interactionIdFrom(rawEvent: unknown): string | undefined {
+  const event = InteractionEventSchema.safeParse(rawEvent).data;
+  if (!event) return undefined;
   if (event.event_type === "interaction.created" || event.event_type === "interaction.completed") {
     return event.interaction?.id;
   }
@@ -32,12 +35,16 @@ export function interactionIdFrom(event: InteractionEvent): string | undefined {
   return undefined;
 }
 
-export function textFrom(event: InteractionEvent): string | undefined {
+export function textFrom(rawEvent: unknown): string | undefined {
+  const event = InteractionEventSchema.safeParse(rawEvent).data;
+  if (!event) return undefined;
   return event.event_type === "step.delta" && event.delta?.type === "text"
     ? event.delta.text
     : undefined;
 }
 
-export function errorFrom(event: InteractionEvent): string | undefined {
+export function errorFrom(rawEvent: unknown): string | undefined {
+  const event = InteractionEventSchema.safeParse(rawEvent).data;
+  if (!event) return undefined;
   return event.event_type === "error" ? (event.error?.message ?? "Gemini 互動失敗") : undefined;
 }

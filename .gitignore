@@ -6,6 +6,7 @@
 node_modules/
 .worktrees/
 .next/
+.data/
 dist/
 __pycache__/
 .pytest_cache/
