@@ -16,6 +16,14 @@ import {
 import { routaAssistantLabel, routaBrand, routaSubtitle } from "../lib/brand";
 import { composerKeyAction } from "../lib/composer";
 import { todayInTaipei } from "../lib/date";
+import { formatItineraryTime } from "../lib/time";
+import {
+  JUDGE_DEMO_TOTAL_MS,
+  JUDGE_DEMO_TIMELINE,
+  isJudgeDemoRunning,
+  judgeDemoNextPhase,
+  type JudgeDemoPhase,
+} from "../lib/judge-demo";
 import { assessPlanningReadiness } from "../lib/itinerary/readiness";
 import {
   hasGoogleMapsKey,
@@ -40,13 +48,6 @@ const starter: ChatMessage = {
 
 function todayDate(): string {
   return todayInTaipei();
-}
-
-function formatTime(value: string | undefined): string {
-  if (!value) return "待討論";
-  return new Intl.DateTimeFormat("zh-TW", { hour: "2-digit", minute: "2-digit" }).format(
-    new Date(value),
-  );
 }
 
 function formatDuration(seconds: number | undefined): string {
@@ -77,6 +78,26 @@ function statusLabel(status: DayItinerarySnapshot["status"]): string {
           : "已完成";
 }
 
+function judgeDemoPhaseLabel(phase: JudgeDemoPhase): string {
+  if (phase === "idle") return "尚未開始";
+  if (phase === "stopped") return "已停止";
+  if (phase === "error") return "需要重試";
+  return JUDGE_DEMO_TIMELINE.find((step) => step.phase === phase)?.label ?? "進行中";
+}
+
+function judgeDemoPhaseDescription(phase: JudgeDemoPhase): string {
+  if (phase === "stopped") return "流程已停止，行程仍保留在目前狀態。";
+  if (phase === "error") return "流程遇到問題，請查看下方錯誤並重試。";
+  return (
+    JUDGE_DEMO_TIMELINE.find((step) => step.phase === phase)?.description ??
+    "Routa 正在準備評審流程。"
+  );
+}
+
+function formatDemoElapsed(elapsedMs: number): string {
+  const seconds = Math.min(Math.round(elapsedMs / 1000), JUDGE_DEMO_TOTAL_MS / 1000);
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+}
 const planningFieldLabels: Record<PlanningField, string> = {
   origin: "出發位置",
   destinations: "想去的地點",
@@ -504,6 +525,42 @@ function NavigationOverlay({ snapshot }: { snapshot: DayItinerarySnapshot }) {
   );
 }
 
+function NavigationStatus({ snapshot }: { snapshot: DayItinerarySnapshot }) {
+  const navigation = activeNavigation(snapshot);
+  if (!navigation) return null;
+  const from =
+    navigation.leg.fromStopId === "origin"
+      ? snapshot.origin?.label
+      : snapshot.stops.find((stop) => stop.id === navigation.leg.fromStopId)?.title;
+
+  return (
+    <section className="navigation-status" aria-label="目前導航狀態">
+      <div className="navigation-heading">
+        <div>
+          <span className="navigation-live">
+            <span className="status-dot" /> 正在導航
+          </span>
+          <strong>前往 {navigation.destination?.title ?? "下一站"}</strong>
+        </div>
+        <span className="navigation-mode">{modeLabel(navigation.leg.route?.profile)}</span>
+      </div>
+      <div className="navigation-track" aria-hidden="true">
+        <span className="navigation-track-start" />
+        <span className="navigation-track-line">
+          <span className="navigation-track-progress" />
+        </span>
+        <span className="navigation-traveler" />
+        <span className="navigation-track-end" />
+      </div>
+      <div className="navigation-details">
+        <span>{from ?? "目前位置"}</span>
+        <strong>約 {formatDuration(navigation.leg.route?.durationSeconds)}</strong>
+        <span>{navigation.destination?.location.label ?? "下一站"}</span>
+      </div>
+    </section>
+  );
+}
+
 function StopTimeline({ snapshot }: { snapshot: DayItinerarySnapshot }) {
   const returnLeg = snapshot.legs.at(-1)?.toStopId === "home" ? snapshot.legs.at(-1) : undefined;
   const activityLegs = returnLeg ? snapshot.legs.slice(0, -1) : snapshot.legs;
@@ -514,7 +571,7 @@ function StopTimeline({ snapshot }: { snapshot: DayItinerarySnapshot }) {
         <div className="timeline-row origin-row">
           <span className="timeline-dot origin" />
           <div className="timeline-copy">
-            <small>出發</small>
+            <small>出發 · {formatItineraryTime(snapshot.startAt)}</small>
             <strong>{snapshot.origin.label}</strong>
           </div>
         </div>
@@ -532,7 +589,7 @@ function StopTimeline({ snapshot }: { snapshot: DayItinerarySnapshot }) {
             <div className="timeline-copy">
               <small>
                 {stop.constraint === "fixed" ? "固定活動" : "可調整"} ·{" "}
-                {formatTime(stop.timeWindow?.startAt)}
+                {formatItineraryTime(stop.timeWindow?.startAt)}
               </small>
               <strong>{stop.title}</strong>
               <span>{stop.location.label}</span>
@@ -590,8 +647,13 @@ export default function Page() {
   const [error, setError] = useState("");
   const [demoScenario, setDemoScenario] = useState<DemoScenario>("flood");
   const [latestNotification, setLatestNotification] = useState<ItineraryNotification>();
+  const [judgeDemoPhase, setJudgeDemoPhase] = useState<JudgeDemoPhase>("idle");
+  const [judgeDemoElapsedMs, setJudgeDemoElapsedMs] = useState(0);
   const nextMessageId = useRef(1);
   const isComposingRef = useRef(false);
+  const judgeDemoRunRef = useRef(0);
+  const judgeDemoTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const judgeDemoStartedAtRef = useRef<number | undefined>(undefined);
 
   function applySnapshot(snapshot: DayItinerarySnapshot) {
     setItinerary(snapshot);
@@ -604,7 +666,42 @@ export default function Page() {
     });
   }
 
+  function appendMessage(role: ChatMessage["role"], content: string) {
+    setMessages((current) => [...current, { id: nextMessageId.current++, role, content }]);
+  }
+
+  function clearJudgeDemoTimers() {
+    judgeDemoTimersRef.current.forEach((timer) => clearTimeout(timer));
+    judgeDemoTimersRef.current = [];
+  }
+
+  function resetJudgeDemo() {
+    judgeDemoRunRef.current += 1;
+    clearJudgeDemoTimers();
+    judgeDemoStartedAtRef.current = undefined;
+    setJudgeDemoElapsedMs(0);
+    setJudgeDemoPhase("idle");
+  }
+
+  useEffect(() => {
+    if (!isJudgeDemoRunning(judgeDemoPhase) || judgeDemoStartedAtRef.current === undefined) {
+      return;
+    }
+    const interval = setInterval(() => {
+      setJudgeDemoElapsedMs(Date.now() - (judgeDemoStartedAtRef.current ?? Date.now()));
+    }, 500);
+    return () => clearInterval(interval);
+  }, [judgeDemoPhase]);
+
+  useEffect(() => {
+    return () => {
+      clearJudgeDemoTimers();
+      judgeDemoRunRef.current += 1;
+    };
+  }, []);
+
   async function selectPlan(id: string) {
+    resetJudgeDemo();
     setLoading(true);
     setError("");
     try {
@@ -637,6 +734,7 @@ export default function Page() {
 
   async function createPlan(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    resetJudgeDemo();
     setLoading(true);
     setError("");
     try {
@@ -654,6 +752,7 @@ export default function Page() {
   }
 
   function newPlan() {
+    resetJudgeDemo();
     setSelectedId(undefined);
     setItinerary(undefined);
     setMessages([starter]);
@@ -664,6 +763,7 @@ export default function Page() {
   }
 
   async function deletePlan(id: string) {
+    if (selectedId === id) resetJudgeDemo();
     setError("");
     try {
       const response = await fetch(`/api/day-plans/${id}/delete`, { method: "DELETE" });
@@ -722,15 +822,7 @@ export default function Page() {
     try {
       const response = await postPlan(`/api/day-plans/${selectedId}/start`);
       applySnapshot(response.itinerary);
-      if (response.assistantMessage)
-        setMessages((current) => [
-          ...current,
-          {
-            id: nextMessageId.current++,
-            role: "assistant",
-            content: response.assistantMessage ?? "",
-          },
-        ]);
+      if (response.assistantMessage) appendMessage("assistant", response.assistantMessage);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "無法開始行程");
     } finally {
@@ -762,18 +854,112 @@ export default function Page() {
     try {
       const response = await postPlan(`/api/day-plans/${selectedId}/complete`);
       applySnapshot(response.itinerary);
-      if (response.assistantMessage)
-        setMessages((current) => [
-          ...current,
-          {
-            id: nextMessageId.current++,
-            role: "assistant",
-            content: response.assistantMessage ?? "",
-          },
-        ]);
+      if (response.assistantMessage) appendMessage("assistant", response.assistantMessage);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "無法完成行程");
     } finally {
+      setLoading(false);
+    }
+  }
+
+  function stopJudgeDemo() {
+    if (!isJudgeDemoRunning(judgeDemoPhase)) return;
+    judgeDemoRunRef.current += 1;
+    clearJudgeDemoTimers();
+    judgeDemoStartedAtRef.current = undefined;
+    setJudgeDemoPhase("stopped");
+    appendMessage("assistant", "評審 Demo 已停止；你仍然可以用右側控制列手動更新或完成行程。");
+  }
+
+  async function runJudgeDemo() {
+    if (!selectedId || !readyToStart || loading || isJudgeDemoRunning(judgeDemoPhase)) return;
+    const planId = selectedId;
+    const runId = judgeDemoRunRef.current + 1;
+    judgeDemoRunRef.current = runId;
+    clearJudgeDemoTimers();
+    judgeDemoStartedAtRef.current = Date.now();
+    setJudgeDemoElapsedMs(0);
+    setJudgeDemoPhase("confirming");
+    setError("");
+    appendMessage("user", "這個安排可以，請幫我開始導航；如果遇到突發狀況就直接幫我改路線。");
+
+    const timeout = setTimeout(() => {
+      if (judgeDemoRunRef.current !== runId) return;
+      judgeDemoRunRef.current += 1;
+      clearJudgeDemoTimers();
+      setJudgeDemoPhase("error");
+      setError("Demo 超過兩分鐘仍未完成，請檢查 API 連線後重試。");
+      setLoading(false);
+    }, JUDGE_DEMO_TOTAL_MS);
+    judgeDemoTimersRef.current.push(timeout);
+
+    try {
+      appendMessage(
+        "assistant",
+        "收到。我會先確認各段交通，再啟動導航；途中如果偵測到災害或道路中斷，會即時通知並重新安排。",
+      );
+      setJudgeDemoPhase(judgeDemoNextPhase("confirming") ?? "starting");
+      setLoading(true);
+
+      const startResponse = await postPlan(`/api/day-plans/${planId}/start`);
+      if (judgeDemoRunRef.current !== runId) return;
+      applySnapshot(startResponse.itinerary);
+      appendMessage(
+        "assistant",
+        startResponse.assistantMessage ?? "導航已啟動，Routa 開始監測你的行程。",
+      );
+      setJudgeDemoPhase(judgeDemoNextPhase("starting") ?? "navigating");
+
+      appendMessage("assistant", "⚠️ 偵測到前方示範道路封閉。我先暫停原路線，重新評估下一段交通。");
+      setJudgeDemoPhase(judgeDemoNextPhase("navigating") ?? "incident");
+      const refreshResponse = await postPlan(`/api/day-plans/${planId}/demo`, {
+        scenario: "road_closure",
+      });
+      if (judgeDemoRunRef.current !== runId) return;
+      applySnapshot(refreshResponse.itinerary);
+      if (refreshResponse.notification) setLatestNotification(refreshResponse.notification);
+      let refreshedStatus = refreshResponse.itinerary.status;
+      if (refreshResponse.itinerary.status === "update_pending") {
+        appendMessage("user", "我確認這次改道安排，請繼續導航。");
+        const confirmation = await postPlan(`/api/day-plans/${planId}/messages`, {
+          message: "我確認這次改道安排，請繼續導航。",
+        });
+        if (judgeDemoRunRef.current !== runId) return;
+        applySnapshot(confirmation.itinerary);
+        refreshedStatus = confirmation.itinerary.status;
+        if (confirmation.assistantMessage)
+          appendMessage("assistant", confirmation.assistantMessage);
+      }
+      if (refreshedStatus === "update_pending") {
+        throw new Error("改道路線仍等待確認，Demo 無法繼續完成。");
+      }
+
+      setJudgeDemoPhase(judgeDemoNextPhase("incident") ?? "rerouting");
+      appendMessage(
+        "assistant",
+        "已完成重新規劃，受影響路段已標記並替換成可行路線；右側地圖與時間軸已同步更新。",
+      );
+
+      const completeResponse = await postPlan(`/api/day-plans/${planId}/complete`);
+      if (judgeDemoRunRef.current !== runId) return;
+      applySnapshot(completeResponse.itinerary);
+      if (completeResponse.assistantMessage)
+        appendMessage("assistant", completeResponse.assistantMessage);
+      setJudgeDemoElapsedMs(Date.now() - (judgeDemoStartedAtRef.current ?? Date.now()));
+      setJudgeDemoPhase(judgeDemoNextPhase("rerouting") ?? "completed");
+      judgeDemoStartedAtRef.current = undefined;
+      clearJudgeDemoTimers();
+      appendMessage("assistant", "評審 Demo 完成：導航、災害通知與即時改道流程都已跑完。");
+    } catch (requestError) {
+      if (judgeDemoRunRef.current !== runId) return;
+      const message = requestError instanceof Error ? requestError.message : "Demo 流程失敗";
+      setError(message);
+      setJudgeDemoPhase("error");
+      appendMessage("assistant", `Demo 無法完成：${message}`);
+    } finally {
+      if (judgeDemoRunRef.current === runId) {
+        clearJudgeDemoTimers();
+      }
       setLoading(false);
     }
   }
@@ -946,6 +1132,32 @@ export default function Page() {
                   </button>
                 )}
               </div>
+              {judgeDemoPhase !== "idle" && (
+                <div className={`judge-demo-panel ${judgeDemoPhase}`}>
+                  <div className="judge-demo-heading">
+                    <div>
+                      <p className="kicker">JUDGE DEMO · 最長 02:00</p>
+                      <strong>{judgeDemoPhaseLabel(judgeDemoPhase)}</strong>
+                    </div>
+                    <span className="judge-demo-clock">
+                      {formatDemoElapsed(judgeDemoElapsedMs)} / 2:00
+                    </span>
+                  </div>
+                  <div className="judge-demo-progress" aria-hidden="true">
+                    <span
+                      style={{
+                        width: `${Math.min(100, (judgeDemoElapsedMs / JUDGE_DEMO_TOTAL_MS) * 100)}%`,
+                      }}
+                    />
+                  </div>
+                  <p className="judge-demo-copy">{judgeDemoPhaseDescription(judgeDemoPhase)}</p>
+                  {isJudgeDemoRunning(judgeDemoPhase) && (
+                    <button className="judge-demo-stop" onClick={stopJudgeDemo} type="button">
+                      停止 Demo
+                    </button>
+                  )}
+                </div>
+              )}
               {notification && <NotificationCard notification={notification} />}
               <div className="route-summary">
                 <div>
@@ -975,8 +1187,23 @@ export default function Page() {
                   </span>
                 </div>
               )}
+              <NavigationStatus snapshot={itinerary} />
               <RouteMap key={`${itinerary.id}-${itinerary.revision}`} snapshot={itinerary} />
               <StopTimeline snapshot={itinerary} />
+              {readyToStart && blockedLegCount === 0 && (
+                <button
+                  className="judge-demo-launch"
+                  disabled={
+                    loading ||
+                    !isToday ||
+                    isJudgeDemoRunning(judgeDemoPhase)
+                  }
+                  onClick={runJudgeDemo}
+                  type="button"
+                >
+                  播放 2 分鐘評審 Demo <span>▶</span>
+                </button>
+              )}
               {readyToStart && blockedLegCount > 0 && (
                 <div className="start-block">
                   <p className="start-blocked">
