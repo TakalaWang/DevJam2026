@@ -184,10 +184,8 @@ function mapPosition(point: RoutePoint, points: RoutePoint[]): [number, number] 
 
 function SvgRouteMap({
   snapshot,
-  caption = "Google Routes",
 }: {
   snapshot: DayItinerarySnapshot;
-  caption?: string;
 }) {
   const points = useMemo(() => {
     const stops = snapshot.stops.map((stop) => stop.location);
@@ -251,10 +249,6 @@ function SvgRouteMap({
         })}
       </svg>
       <NavigationOverlay snapshot={snapshot} />
-      <div className="map-caption">
-        <span className="status-dot" /> {isNavigating ? "導航路線" : caption} ·{" "}
-        {snapshot.legs.length} 段交通
-      </div>
     </div>
   );
 }
@@ -418,7 +412,7 @@ function RouteMap({ snapshot }: { snapshot: DayItinerarySnapshot }) {
   if (mapStatus === "fallback") {
     return (
       <div className="map-fallback-wrap">
-        <SvgRouteMap snapshot={snapshot} caption="Google Routes · 示意圖" />
+        <SvgRouteMap snapshot={snapshot} />
         <p className="map-fallback-note">此段交通不支援 Google Maps，已改用行程示意圖。</p>
       </div>
     );
@@ -437,10 +431,6 @@ function RouteMap({ snapshot }: { snapshot: DayItinerarySnapshot }) {
       <div className="google-map-canvas" ref={mapElementRef} />
       {mapStatus === "loading" && <div className="map-loading">正在載入 Google Maps…</div>}
       <NavigationOverlay snapshot={snapshot} />
-      <div className="map-caption">
-        <span className="status-dot" /> {snapshot.status === "active" ? "導航路線" : "Google Maps"}{" "}
-        · {snapshot.legs.length} 段交通
-      </div>
     </div>
   );
 }
@@ -885,7 +875,6 @@ export default function Page() {
     setJudgeDemoElapsedMs(0);
     setJudgeDemoPhase("confirming");
     setError("");
-    appendMessage("user", "這個安排可以，請幫我開始導航；如果遇到突發狀況就直接幫我改路線。");
 
     const timeout = setTimeout(() => {
       if (judgeDemoRunRef.current !== runId) return;
@@ -898,10 +887,6 @@ export default function Page() {
     judgeDemoTimersRef.current.push(timeout);
 
     try {
-      appendMessage(
-        "assistant",
-        "收到。我會先確認各段交通，再啟動導航；途中如果偵測到災害或道路中斷，會即時通知並重新安排。",
-      );
       setJudgeDemoPhase(judgeDemoNextPhase("confirming") ?? "starting");
       setLoading(true);
 
@@ -969,6 +954,9 @@ export default function Page() {
   }
 
   const readyToStart = itinerary?.status === "ready";
+  const awaitingConfirmation =
+    itinerary?.planningPhase === "awaiting_confirmation" &&
+    itinerary.planningFacts.confirmation === "pending";
   const blockedLegCount = itinerary?.legs.filter((leg) => leg.status === "blocked").length ?? 0;
   const isToday = itinerary?.date === todayDate();
   const notification = latestNotification ?? itinerary?.notifications.at(-1);
@@ -1072,6 +1060,18 @@ export default function Page() {
                   </div>
                 )}
               </div>
+              {awaitingConfirmation && (
+                <div className="conversation-confirmation">
+                  <button
+                    className="confirmation-action"
+                    disabled={loading}
+                    onClick={() => void sendMessage("確認，就這樣安排")}
+                    type="button"
+                  >
+                    確認行程 <span>→</span>
+                  </button>
+                </div>
+              )}
               <form className="composer" onSubmit={submitMessage}>
                 <textarea
                   aria-label="輸入行程討論"
@@ -1155,14 +1155,7 @@ export default function Page() {
             )}
             {notification && <NotificationCard notification={notification} />}
             <div className="route-summary">
-              <div>
-                <strong>{itinerary.stops.length} 個目的地</strong>
-                <span>
-                  {itinerary.legs.length} 段交通 ·{" "}
-                  {itinerary.returnHome ? "包含回家" : "不返回起點"}
-                </span>
-              </div>
-              <span className="route-source">GOOGLE ROUTES</span>
+              <strong>{itinerary.stops.length} 個景點</strong>
             </div>
             <RouteMap key={`${itinerary.id}-${itinerary.revision}`} snapshot={itinerary} />
             <StopTimeline snapshot={itinerary} />

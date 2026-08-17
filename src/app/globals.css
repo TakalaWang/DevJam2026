@@ -338,6 +338,68 @@ textarea:focus-visible {
   margin: 0;
   white-space: pre-line;
 }
+.message-markdown {
+  overflow-wrap: anywhere;
+}
+.message-markdown p {
+  margin: 0 0 0.8em;
+  white-space: normal;
+}
+.message-markdown > :first-child {
+  margin-top: 0;
+}
+.message-markdown > :last-child {
+  margin-bottom: 0;
+}
+.message-markdown ul,
+.message-markdown ol {
+  margin: 0 0 0.8em;
+  padding-inline-start: 1.35em;
+}
+.message-markdown li + li {
+  margin-top: 0.25em;
+}
+.message-markdown h1,
+.message-markdown h2,
+.message-markdown h3 {
+  margin: 1em 0 0.45em;
+  color: inherit;
+  font-size: 1em;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.message-markdown strong {
+  color: var(--text);
+  font-weight: 600;
+}
+.message-markdown code {
+  padding: 0.1em 0.3em;
+  color: var(--mint-deep);
+  background: #e8f3ee;
+  font-family: "DM Mono", monospace;
+  font-size: 0.9em;
+}
+.message-markdown pre {
+  overflow-x: auto;
+  margin: 0 0 0.8em;
+  padding: 10px 12px;
+  background: #eef7f3;
+}
+.message-markdown pre code {
+  padding: 0;
+  background: transparent;
+}
+.message-markdown blockquote {
+  margin: 0 0 0.8em;
+  padding-inline-start: 12px;
+  border-inline-start: 1px solid var(--mint);
+  color: var(--muted);
+}
+.message-markdown a {
+  color: var(--mint-deep);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 .typing-dot {
   width: 7px;
   height: 7px;
@@ -3156,4 +3218,31 @@ body,
 
 .history-sidebar .icon-button {
   background: transparent;
+}
+
+.conversation-confirmation {
+  display: flex;
+  justify-content: flex-start;
+  padding: 0 0 12px;
+}
+
+.confirmation-action {
+  min-height: 38px;
+  padding: 8px 12px;
+  border: 1px solid var(--mint);
+  color: var(--mint-deep);
+  background: var(--panel-soft);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.confirmation-action span {
+  margin-left: 6px;
+  font-size: 15px;
+}
+
+.confirmation-action:hover:not(:disabled) {
+  color: #ffffff;
+  background: var(--mint);
 }
