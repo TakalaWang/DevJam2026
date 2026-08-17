@@ -115,6 +115,12 @@ export const RoutePathSchema = z.object({
 });
 export type RoutePath = z.infer<typeof RoutePathSchema>;
 
+export const RouteProviderResultSchema = z.discriminatedUnion("status", [
+  z.object({ status: z.literal("ok"), paths: z.array(RoutePathSchema).min(1) }),
+  z.object({ status: z.literal("unavailable"), reason: z.string().min(1) }),
+]);
+export type RouteProviderResult = z.infer<typeof RouteProviderResultSchema>;
+
 export const RouteFindingCodeSchema = z.enum([
   "flooded_segment",
   "road_closed",
