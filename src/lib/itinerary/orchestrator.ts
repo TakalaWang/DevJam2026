@@ -200,8 +200,20 @@ export class ItineraryOrchestrator {
   ): Promise<ItineraryOperationResult & { cityFeeds: CityFeedSnapshot }> {
     const current = this.store.getSession(sessionId);
     if (!current) throw new Error("找不到一天行程 session");
+    if (current.status !== "active" && current.status !== "update_pending") {
+      throw new Error("行程尚未開始，不能執行即時更新");
+    }
     const cityFeeds = await this.cityGateway.refresh(rawQuery);
-    const signals = cityFeeds.signals.length ? cityFeeds.signals : current.signals;
+    if (!cityFeeds.signals.length) {
+      const run = this.store.createRun(sessionId, "system:city_refresh");
+      const completed = this.store.saveRun({
+        ...run,
+        status: "succeeded",
+        completedAt: now(),
+      });
+      return { itinerary: current, lastRun: completed, cityFeeds };
+    }
+    const signals = cityFeeds.signals;
     return { ...(await this.refresh(sessionId, signals)), cityFeeds };
   }
 
@@ -333,13 +345,20 @@ export class ItineraryOrchestrator {
         changed: true,
       };
     }
-    const notifications = current.notifications.map((notification) =>
-      notification.id === command.notificationId
-        ? { ...notification, readAt: now() }
-        : notification,
+    const notification = current.notifications.find(
+      (candidate) => candidate.id === command.notificationId,
     );
+    if (!notification) throw new Error("找不到要確認的通知");
+    const notifications = current.notifications.map((candidate) =>
+      candidate.id === command.notificationId ? { ...candidate, readAt: now() } : candidate,
+    );
+    const status =
+      current.status === "update_pending" &&
+      !current.legs.some((leg) => leg.status === "blocked")
+        ? "active"
+        : current.status;
     return {
-      snapshot: DayItinerarySnapshotSchema.parse({ ...current, notifications }),
+      snapshot: DayItinerarySnapshotSchema.parse({ ...current, status, notifications }),
       changed: true,
     };
   }
