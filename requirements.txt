@@ -1,6 +1,0 @@
-streamlit>=1.48
-folium>=0.20
-streamlit-folium>=0.25
-requests>=2.32
-pytest>=8.0
-python-dotenv>=1.0
