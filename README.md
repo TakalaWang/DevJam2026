@@ -1,6 +1,6 @@
-# Routecraft · 即時城市路線 App
+# Routa 智旅 · 即時城市路線 App
 
-Routecraft 是只在本機執行的日行程 Web 工作台：左側保存行程紀錄，中間用 Gemini 討論，右側顯示從出門到回家的完整行程與每一段交通。開始行程後，Demo monitor 可以模擬淹水、封路、車站中斷與 YouBike 供給事件，透過 Google Routes 的替代路線與 waypoint detour 重新計算受影響路段，並發送包含原因、前後方案與差異的通知。
+Routa 智旅是只在本機執行的日行程 Web 工作台：左側保存行程紀錄，中間用 Gemini 討論，右側顯示從出門到回家的完整行程與每一段交通。開始行程後，Demo monitor 可以模擬淹水、封路、車站中斷與 YouBike 供給事件，透過 Google Routes 的替代路線與 waypoint detour 重新計算受影響路段，並發送包含原因、前後方案與差異的通知。
 
 目前的城市事件來源有 `/demo`、`/refresh` 與 `/refresh/live` 三個 typed 入口；local client 或 cron 可每五分鐘呼叫 live endpoint，背景輪詢本身不由 Next process 常駐執行。
 

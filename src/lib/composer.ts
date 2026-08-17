@@ -13,8 +13,9 @@ export function composerKeyAction(event: {
   key: string;
   shiftKey?: boolean;
   isComposing?: boolean;
-}): ComposerKeyAction {
+  keyCode?: number;
+}, composing = false): ComposerKeyAction {
   if (event.key !== "Enter") return "ignore";
-  if (event.isComposing) return "ignore";
+  if (event.isComposing || composing || event.keyCode === 229) return "ignore";
   return event.shiftKey ? "newline" : "send";
 }

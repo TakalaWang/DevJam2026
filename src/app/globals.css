@@ -1,17 +1,17 @@
 @import url("https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap");
 
 :root {
-  color-scheme: dark;
-  --bg: #091019;
-  --panel: #101b26;
-  --panel-soft: #0d1721;
-  --line: #263747;
-  --muted: #81919d;
-  --text: #eef2eb;
-  --mint: #72e3c2;
-  --mint-deep: #1c806b;
-  --orange: #f1ad61;
-  --danger: #f28471;
+  color-scheme: light;
+  --bg: #f6fbf8;
+  --panel: #ffffff;
+  --panel-soft: #eef7f3;
+  --line: #d8e7e1;
+  --muted: #72878a;
+  --text: #223d40;
+  --mint: #268a7c;
+  --mint-deep: #176b61;
+  --orange: #db7657;
+  --danger: #c95f59;
   font-family:
     "IBM Plex Sans",
     -apple-system,
@@ -808,4 +808,1929 @@ textarea:focus-visible {
     animation-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* Routa 智旅 — Sea Glass light direction */
+html,
+body {
+  background: #f6fbf8;
+  color: var(--text);
+}
+
+.workbench {
+  background: #f6fbf8;
+}
+
+.workbench-header {
+  background: rgba(251, 255, 253, 0.94);
+  border-bottom-color: #d8e7e1;
+  box-shadow: 0 4px 18px rgba(38, 91, 82, 0.04);
+}
+
+.brand {
+  color: #223d40;
+}
+
+.brand-mark {
+  position: relative;
+  width: 23px;
+  height: 23px;
+  border: 0;
+  border-radius: 8px;
+  background: #268a7c;
+  transform: none;
+}
+
+.brand-mark::after {
+  content: "↗";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.brand > span:last-child {
+  color: #78908e;
+}
+
+.local-status,
+.status-chip {
+  color: #347a70;
+  border-color: #b9ded3;
+  background: #e4f4ee;
+}
+
+.status-chip {
+  border: 0;
+}
+
+.status-dot {
+  background: #4da996;
+  box-shadow: 0 0 8px rgba(77, 169, 150, 0.4);
+}
+
+.history-sidebar,
+.conversation-panel,
+.itinerary-panel {
+  border-color: #d8e7e1;
+}
+
+.history-sidebar {
+  background: #eaf5f0;
+}
+
+.conversation-panel {
+  background: #f6fbf8;
+}
+
+.itinerary-panel {
+  background: #ffffff;
+}
+
+.sidebar-heading h1,
+.conversation-heading h2,
+.itinerary-heading h2,
+.create-plan h2,
+.timeline-copy strong,
+.notification-card h3,
+.monitor-block strong,
+.empty-state strong {
+  color: #223d40;
+}
+
+.sidebar-copy,
+.create-plan > p:not(.kicker),
+.timeline-copy small,
+.timeline-copy span,
+.empty-state,
+.monitor-block > div:first-child span {
+  color: #71878a;
+}
+
+.kicker,
+.message-label,
+.conversation-note,
+.workbench-footer {
+  color: #78908e;
+}
+
+.icon-button {
+  border-color: #b7d8ce;
+  border-radius: 100px;
+  color: #268a7c;
+  background: #f7fffb;
+}
+
+.history-item.selected {
+  border-color: #add7ca;
+  border-radius: 12px;
+  background: #dcefe9;
+}
+
+.history-select {
+  color: #2c5655;
+}
+
+.history-select span,
+.history-empty {
+  color: #78908e;
+}
+
+.delete-button {
+  color: #a17d78;
+}
+
+.create-plan input {
+  border-color: #c9ddd6;
+  border-radius: 12px;
+  color: #223d40;
+  background: #ffffff;
+  color-scheme: light;
+}
+
+.create-plan label,
+.demo-controls label {
+  color: #66807f;
+}
+
+.primary-action {
+  border-radius: 12px;
+  color: #ffffff;
+  background: #268a7c;
+}
+
+.primary-action:hover,
+.composer button:hover {
+  background: #1f796e;
+}
+
+.conversation-heading,
+.itinerary-heading {
+  border-bottom-color: #d8e7e1;
+}
+
+.conversation-log {
+  padding-top: 22px;
+}
+
+.message {
+  max-width: min(86%, 560px);
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border: 1px solid #e0ece7;
+  border-radius: 18px 18px 18px 5px;
+  color: #496466;
+  background: #ffffff;
+  box-shadow: 0 6px 16px rgba(38, 91, 82, 0.05);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.message.user {
+  margin-right: 0;
+  margin-left: auto;
+  padding-left: 14px;
+  border: 1px solid #c4e4d9;
+  border-radius: 18px 18px 5px 18px;
+  color: #2c625d;
+  background: #dcefe9;
+}
+
+.message-label {
+  margin-bottom: 5px;
+  color: #73918c;
+}
+
+.message.user .message-label {
+  color: #268a7c;
+}
+
+.typing-dot {
+  background: #268a7c;
+}
+
+.composer {
+  border-color: #c7dfd6;
+  border-radius: 15px;
+  background: #ffffff;
+  box-shadow: 0 7px 18px rgba(38, 91, 82, 0.05);
+}
+
+.composer:focus-within {
+  border-color: #70b9aa;
+  box-shadow: 0 0 0 3px rgba(112, 185, 170, 0.14);
+}
+
+.composer textarea {
+  color: #29484b;
+}
+
+.composer textarea::placeholder {
+  color: #91a4a2;
+}
+
+.composer button {
+  border-radius: 10px;
+  color: #ffffff;
+  background: #268a7c;
+}
+
+.conversation-note {
+  color: #7c9591;
+}
+
+.notification-card,
+.notification-card.critical {
+  border-color: #efc6a8;
+  border-radius: 14px;
+  background: #fff5ea;
+}
+
+.notification-kicker,
+.notification-card small {
+  color: #c5754e;
+}
+
+.notification-card h3 {
+  color: #654a40;
+}
+
+.notification-card p {
+  color: #866d62;
+}
+
+.route-summary strong {
+  color: #2b4b4b;
+}
+
+.route-summary span {
+  color: #78908e;
+}
+
+.route-source {
+  color: #268a7c !important;
+}
+
+.route-map {
+  border-color: #b7d8d0;
+  border-radius: 16px;
+  background: #d8eeea;
+}
+
+.map-grid {
+  background:
+    repeating-linear-gradient(28deg, transparent 0 27px, rgba(255, 255, 255, 0.75) 28px 31px),
+    repeating-linear-gradient(117deg, transparent 0 45px, rgba(62, 139, 127, 0.2) 46px 48px);
+}
+
+.map-route {
+  stroke: #db7657;
+  filter: drop-shadow(0 4px 2px rgba(160, 87, 65, 0.2));
+}
+
+.map-stop {
+  fill: #db7657;
+  stroke: #ffffff;
+}
+
+.map-stop.origin {
+  fill: #268a7c;
+}
+
+.map-caption {
+  color: #4d8279;
+  border: 1px solid rgba(172, 211, 201, 0.8);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.timeline {
+  margin-top: 17px;
+}
+
+.timeline-dot {
+  border-color: #67b3a2;
+  background: #ffffff;
+}
+
+.timeline-dot.origin {
+  border-color: #a2b8b5;
+  background: #a2b8b5;
+}
+
+.timeline-dot.fixed {
+  border-color: #db7657;
+}
+
+.timeline-dot.visited {
+  border-color: #268a7c;
+  background: #268a7c;
+}
+
+.timeline-dot.needs_review {
+  border-color: #c95f59;
+}
+
+.leg-line {
+  border-left-color: #b8d7cf;
+  color: #78908e;
+}
+
+.leg-line strong {
+  color: #4c7772;
+}
+
+.leg-line.blocked {
+  color: #c95f59;
+}
+
+.constraint {
+  border-radius: 100px;
+  color: #347a70;
+  background: #e3f3ed;
+}
+
+.constraint.fixed {
+  color: #b35f43;
+  background: #fff0e6;
+}
+
+.constraint.home {
+  color: #6d8181;
+  background: #edf2f0;
+}
+
+.start-block,
+.monitor-block {
+  border-top-color: #d8e7e1;
+}
+
+.start-block p {
+  color: #347a70;
+}
+
+.start-block .start-blocked {
+  color: #b56a4d;
+}
+
+.secondary-action {
+  border-color: #8bc4b5;
+  border-radius: 10px;
+  color: #268a7c;
+  background: #f7fffb;
+}
+
+.demo-controls select {
+  border-color: #c9ddd6;
+  border-radius: 9px;
+  color: #315351;
+  background: #ffffff;
+  color-scheme: light;
+}
+
+.complete-action {
+  border-color: #b7cbc5;
+  border-radius: 10px;
+  color: #66807f;
+  background: #ffffff;
+}
+
+.completed-block {
+  border-color: #b7ded2;
+  border-radius: 12px;
+  color: #347a70;
+  background: #eaf7f1;
+}
+
+.empty-mark {
+  color: #268a7c;
+}
+
+.error-text {
+  border-top-color: #efc6a8;
+  color: #b56a4d;
+  background: #fff5ea;
+}
+
+.workbench-footer {
+  border-top-color: #d8e7e1;
+  color: #78908e;
+}
+
+/* Routa palette balance — warm white, mist blue, coral, restrained teal */
+:root {
+  --bg: #fbfaf7;
+  --panel: #ffffff;
+  --panel-soft: #f2f5f5;
+  --line: #dce3e4;
+  --muted: #7a8790;
+  --text: #293943;
+  --mint: #3b7f87;
+  --mint-deep: #2b6570;
+  --orange: #e38b5e;
+  --danger: #c96861;
+}
+
+html,
+body,
+.workbench {
+  background: #fbfaf7;
+}
+
+.workbench-header {
+  background: rgba(255, 255, 255, 0.95);
+  border-bottom-color: #dce3e4;
+  box-shadow: 0 4px 18px rgba(47, 65, 75, 0.05);
+}
+
+.brand {
+  color: #293943;
+}
+
+.brand-mark {
+  background: #3b7f87;
+}
+
+.brand > span:last-child {
+  color: #82909a;
+}
+
+.local-status,
+.status-chip {
+  color: #3a7079;
+  border-color: #c3d8dc;
+  background: #edf5f6;
+}
+
+.status-chip {
+  border: 0;
+}
+
+.status-dot {
+  background: #3b7f87;
+  box-shadow: 0 0 8px rgba(59, 127, 135, 0.3);
+}
+
+.history-sidebar {
+  background: #f0f3f4;
+}
+
+.conversation-panel {
+  background: #fbfaf7;
+}
+
+.itinerary-panel {
+  background: #ffffff;
+}
+
+.history-sidebar,
+.conversation-panel,
+.itinerary-panel,
+.conversation-heading,
+.itinerary-heading,
+.start-block,
+.monitor-block,
+.workbench-footer {
+  border-color: #dce3e4;
+}
+
+.sidebar-heading h1,
+.conversation-heading h2,
+.itinerary-heading h2,
+.create-plan h2,
+.timeline-copy strong,
+.notification-card h3,
+.monitor-block strong,
+.empty-state strong {
+  color: #293943;
+}
+
+.sidebar-copy,
+.create-plan > p:not(.kicker),
+.timeline-copy small,
+.timeline-copy span,
+.empty-state,
+.monitor-block > div:first-child span,
+.history-select span,
+.history-empty {
+  color: #7a8790;
+}
+
+.kicker,
+.message-label,
+.conversation-note,
+.workbench-footer {
+  color: #849099;
+}
+
+.icon-button {
+  border-color: #bfd4d8;
+  color: #3b7f87;
+  background: #ffffff;
+}
+
+.history-item.selected {
+  border-color: #bdd4d9;
+  background: #e3edf0;
+}
+
+.history-select {
+  color: #3b4f59;
+}
+
+.message {
+  border-color: #e0e5e5;
+  color: #50616a;
+  background: #ffffff;
+  box-shadow: 0 6px 16px rgba(47, 65, 75, 0.06);
+}
+
+.message.user {
+  border-color: #efc9b2;
+  color: #744e41;
+  background: #fae6d9;
+}
+
+.message.user .message-label {
+  color: #c57252;
+}
+
+.composer {
+  border-color: #cbdcdf;
+  background: #ffffff;
+  box-shadow: 0 7px 18px rgba(47, 65, 75, 0.06);
+}
+
+.composer:focus-within {
+  border-color: #6eabb2;
+  box-shadow: 0 0 0 3px rgba(110, 171, 178, 0.14);
+}
+
+.composer textarea {
+  color: #334951;
+}
+
+.composer textarea::placeholder {
+  color: #9aa5aa;
+}
+
+.composer button,
+.primary-action {
+  color: #ffffff;
+  background: #3b7f87;
+}
+
+.composer button:hover,
+.primary-action:hover {
+  background: #2f6d75;
+}
+
+.route-summary strong {
+  color: #344c57;
+}
+
+.route-summary span {
+  color: #7a8790;
+}
+
+.route-source {
+  color: #3b7f87 !important;
+}
+
+.route-map {
+  border-color: #bfd4d8;
+  background: #e1edf0;
+}
+
+.map-grid {
+  background:
+    repeating-linear-gradient(28deg, transparent 0 27px, rgba(255, 255, 255, 0.8) 28px 31px),
+    repeating-linear-gradient(117deg, transparent 0 45px, rgba(76, 133, 145, 0.2) 46px 48px);
+}
+
+.map-route {
+  stroke: #e38b5e;
+  filter: drop-shadow(0 4px 2px rgba(174, 101, 69, 0.2));
+}
+
+.map-stop {
+  fill: #e38b5e;
+}
+
+.map-stop.origin {
+  fill: #3b7f87;
+}
+
+.map-caption {
+  color: #4c7880;
+  border-color: #c4dadd;
+}
+
+.timeline-dot {
+  border-color: #6aabb2;
+}
+
+.timeline-dot.origin {
+  border-color: #a7b5ba;
+  background: #a7b5ba;
+}
+
+.timeline-dot.fixed {
+  border-color: #e38b5e;
+}
+
+.timeline-dot.visited {
+  border-color: #3b7f87;
+  background: #3b7f87;
+}
+
+.leg-line {
+  border-left-color: #c0d5d9;
+  color: #7c8b92;
+}
+
+.leg-line strong {
+  color: #527680;
+}
+
+.constraint {
+  color: #3b7078;
+  background: #e7f1f3;
+}
+
+.constraint.fixed {
+  color: #bd684b;
+  background: #fff0e6;
+}
+
+.constraint.home {
+  color: #718087;
+  background: #eef1f1;
+}
+
+.notification-card,
+.notification-card.critical {
+  border-color: #efc8ad;
+  background: #fff5ec;
+}
+
+.notification-kicker,
+.notification-card small {
+  color: #c77752;
+}
+
+.notification-card h3 {
+  color: #704d40;
+}
+
+.notification-card p {
+  color: #8b7064;
+}
+
+.secondary-action {
+  border-color: #a9cdd2;
+  color: #3b7f87;
+  background: #f8fcfc;
+}
+
+.demo-controls select {
+  border-color: #cbdcdf;
+  color: #405861;
+  background: #ffffff;
+}
+
+.complete-action {
+  border-color: #c4d1d3;
+  color: #6d7e84;
+  background: #ffffff;
+}
+
+.completed-block {
+  border-color: #c0dadd;
+  color: #3b7078;
+  background: #edf5f6;
+}
+
+.error-text {
+  border-top-color: #efc8ad;
+  color: #b8684d;
+  background: #fff5ec;
+}
+
+/* Routa balance pass — deep navigation rail, calm content surfaces */
+:root {
+  --bg: #f7f3ee;
+  --panel: #fffdfa;
+  --panel-soft: #e5ecee;
+  --line: #cbd6da;
+  --muted: #68777f;
+  --text: #26353d;
+  --mint: #3f858b;
+  --mint-deep: #245d68;
+  --orange: #dc835c;
+  --danger: #bd5a57;
+}
+
+html,
+body,
+.workbench {
+  background: #f7f3ee;
+}
+
+.workbench-header {
+  background: #e8eef0;
+  border-bottom-color: #cbd6da;
+  box-shadow: 0 5px 20px rgba(38, 53, 61, 0.08);
+}
+
+.brand {
+  color: #26353d;
+}
+
+.brand-mark {
+  background: #3f858b;
+}
+
+.brand > span:last-child {
+  color: #708189;
+}
+
+.local-status,
+.status-chip {
+  color: #2d6870;
+  border-color: #b7cdd1;
+  background: #dce9eb;
+}
+
+.status-dot {
+  background: #3f858b;
+  box-shadow: 0 0 8px rgba(63, 133, 139, 0.32);
+}
+
+.history-sidebar {
+  color: #edf3f3;
+  border-right-color: #526771;
+  background: #2b3d48;
+}
+
+.history-sidebar .kicker {
+  color: #a9bdc3;
+}
+
+.history-sidebar .sidebar-heading h1 {
+  color: #f5f7f6;
+}
+
+.history-sidebar .sidebar-copy {
+  color: #c0ced1;
+}
+
+.history-sidebar .icon-button {
+  border-color: #8299a1;
+  color: #f0b08e;
+  background: #354c58;
+}
+
+.history-sidebar .history-item.selected {
+  border-color: #efaa85;
+  background: #405763;
+  box-shadow: inset 3px 0 0 #efaa85;
+}
+
+.history-sidebar .history-select,
+.history-sidebar .history-select strong {
+  color: #f5f7f6;
+}
+
+.history-sidebar .history-select span {
+  color: #bdd0d4;
+}
+
+.history-sidebar .delete-button {
+  color: #d1aaa0;
+}
+
+.history-sidebar .history-empty {
+  color: #d4e0e1;
+  background: #354c58;
+}
+
+.conversation-panel {
+  background: #f7f3ee;
+}
+
+.itinerary-panel {
+  background: #e5ecee;
+}
+
+.history-sidebar,
+.conversation-panel,
+.itinerary-panel,
+.conversation-heading,
+.itinerary-heading,
+.start-block,
+.monitor-block,
+.workbench-footer {
+  border-color: #cbd6da;
+}
+
+.sidebar-heading h1,
+.conversation-heading h2,
+.itinerary-heading h2,
+.create-plan h2,
+.timeline-copy strong,
+.notification-card h3,
+.monitor-block strong,
+.empty-state strong {
+  color: #26353d;
+}
+
+.conversation-heading h2,
+.itinerary-heading h2,
+.create-plan h2 {
+  color: #26353d;
+}
+
+.conversation-heading,
+.itinerary-heading {
+  border-bottom-color: #cbd6da;
+}
+
+.message {
+  border-color: #d8dfdf;
+  color: #455860;
+  background: #fffdfa;
+  box-shadow: 0 7px 18px rgba(38, 53, 61, 0.08);
+}
+
+.message.user {
+  border-color: #efc2a8;
+  color: #70493e;
+  background: #f8dfd0;
+}
+
+.composer {
+  border-color: #b9cbd0;
+  background: #fffdfa;
+  box-shadow: 0 8px 20px rgba(38, 53, 61, 0.1);
+}
+
+.composer:focus-within {
+  border-color: #6ca4aa;
+  box-shadow: 0 0 0 3px rgba(63, 133, 139, 0.16);
+}
+
+.composer button,
+.primary-action {
+  background: #2f7078;
+}
+
+.composer button:hover,
+.primary-action:hover {
+  background: #245d68;
+}
+
+.route-map {
+  border-color: #aebfc4;
+  background: #c7d7db;
+  box-shadow: 0 8px 18px rgba(38, 53, 61, 0.09);
+}
+
+.map-grid {
+  background:
+    repeating-linear-gradient(28deg, transparent 0 27px, rgba(255, 255, 255, 0.66) 28px 31px),
+    repeating-linear-gradient(117deg, transparent 0 45px, rgba(58, 100, 111, 0.25) 46px 48px);
+}
+
+.map-route {
+  stroke: #dc835c;
+  filter: drop-shadow(0 4px 2px rgba(129, 71, 52, 0.24));
+}
+
+.map-stop {
+  fill: #dc835c;
+}
+
+.map-stop.origin {
+  fill: #2f7078;
+}
+
+.map-caption {
+  color: #365f67;
+  border-color: #b4c8cc;
+  background: rgba(250, 252, 251, 0.9);
+}
+
+.timeline-dot {
+  border-color: #5f9da3;
+}
+
+.timeline-dot.visited {
+  border-color: #2f7078;
+  background: #2f7078;
+}
+
+.leg-line {
+  border-left-color: #a9c1c6;
+  color: #6b7c83;
+}
+
+.leg-line strong {
+  color: #416c74;
+}
+
+.constraint {
+  color: #2d6870;
+  background: #dce9eb;
+}
+
+.constraint.fixed {
+  color: #a95d45;
+  background: #fbe9de;
+}
+
+.secondary-action {
+  border-color: #8fb4b9;
+  color: #2f7078;
+  background: #f3f8f8;
+}
+
+.complete-action {
+  border-color: #b3c3c6;
+  color: #65767d;
+  background: #f7faf9;
+}
+
+.completed-block {
+  border-color: #a9c6ca;
+  color: #2d6870;
+  background: #dcebed;
+}
+
+.workbench-footer {
+  color: #6d7c82;
+  background: #e5ecee;
+}
+
+/* Routa editorial palette — paper, ink, and terracotta */
+:root {
+  --bg: #f6f1e9;
+  --panel: #fffaf3;
+  --panel-soft: #ebe4d9;
+  --line: #d7cec1;
+  --muted: #7f817e;
+  --text: #2d3335;
+  --mint: #4a8887;
+  --mint-deep: #2d686b;
+  --orange: #c86d4f;
+  --danger: #a8524d;
+}
+
+html,
+body,
+.workbench {
+  background: #f6f1e9;
+}
+
+.workbench-header {
+  background: #27383c;
+  border-bottom-color: #526466;
+  box-shadow: 0 6px 22px rgba(34, 47, 48, 0.16);
+}
+
+.brand {
+  color: #f8f3eb;
+}
+
+.brand-mark {
+  background: #4a8887;
+}
+
+.brand > span:last-child {
+  color: #b9c7c3;
+}
+
+.local-status,
+.status-chip {
+  color: #e8c8b7;
+  border-color: #647a79;
+  background: #344a4c;
+}
+
+.status-chip {
+  border: 0;
+}
+
+.status-dot {
+  background: #4a8887;
+  box-shadow: 0 0 8px rgba(74, 136, 135, 0.42);
+}
+
+.history-sidebar {
+  color: #f0f2ef;
+  border-right-color: #526466;
+  background: #27383c;
+}
+
+.history-sidebar .kicker {
+  color: #aebfbc;
+}
+
+.history-sidebar .sidebar-heading h1 {
+  color: #fbf8f2;
+}
+
+.history-sidebar .sidebar-copy {
+  color: #c2cfca;
+}
+
+.history-sidebar .icon-button {
+  border-color: #82918d;
+  color: #efb293;
+  background: #344a4c;
+}
+
+.history-sidebar .history-item.selected {
+  border-color: #d98a6b;
+  background: #3a4e50;
+  box-shadow: inset 3px 0 0 #d98a6b;
+}
+
+.history-sidebar .history-select,
+.history-sidebar .history-select strong {
+  color: #fbf8f2;
+}
+
+.history-sidebar .history-select span {
+  color: #bfceca;
+}
+
+.history-sidebar .delete-button {
+  color: #d5aaa0;
+}
+
+.history-sidebar .history-empty {
+  color: #d3dfdb;
+  background: #344a4c;
+}
+
+.conversation-panel {
+  background: #f6f1e9;
+}
+
+.itinerary-panel {
+  background: #ebe4d9;
+}
+
+.history-sidebar,
+.conversation-panel,
+.itinerary-panel,
+.conversation-heading,
+.itinerary-heading,
+.start-block,
+.monitor-block,
+.workbench-footer {
+  border-color: #d7cec1;
+}
+
+.conversation-heading,
+.itinerary-heading {
+  border-bottom-color: #d7cec1;
+}
+
+.sidebar-heading h1,
+.conversation-heading h2,
+.itinerary-heading h2,
+.create-plan h2,
+.timeline-copy strong,
+.notification-card h3,
+.monitor-block strong,
+.empty-state strong {
+  color: #2d3335;
+}
+
+.conversation-heading h2,
+.itinerary-heading h2,
+.create-plan h2 {
+  color: #2d3335;
+}
+
+.message {
+  border-color: #e0d8ce;
+  color: #4d5958;
+  background: #fffaf3;
+  box-shadow: 0 7px 18px rgba(72, 63, 54, 0.08);
+}
+
+.message.user {
+  border-color: #e7b49c;
+  color: #70473d;
+  background: #f7ded0;
+}
+
+.message.user .message-label {
+  color: #b8664d;
+}
+
+.composer {
+  border-color: #d0c4b7;
+  background: #fffaf3;
+  box-shadow: 0 8px 20px rgba(72, 63, 54, 0.1);
+}
+
+.composer:focus-within {
+  border-color: #6c9a96;
+  box-shadow: 0 0 0 3px rgba(74, 136, 135, 0.15);
+}
+
+.composer textarea {
+  color: #394745;
+}
+
+.composer textarea::placeholder {
+  color: #9b9990;
+}
+
+.composer button,
+.primary-action {
+  background: #2d686b;
+}
+
+.composer button:hover,
+.primary-action:hover {
+  background: #245457;
+}
+
+.route-summary strong {
+  color: #394644;
+}
+
+.route-summary span,
+.timeline-copy small,
+.timeline-copy span,
+.sidebar-copy,
+.create-plan > p:not(.kicker),
+.empty-state,
+.monitor-block > div:first-child span {
+  color: #7f817e;
+}
+
+.route-source {
+  color: #4a8887 !important;
+}
+
+.route-map {
+  border-color: #c5bbae;
+  background: #d7d0c4;
+  box-shadow: 0 8px 18px rgba(72, 63, 54, 0.1);
+}
+
+.map-grid {
+  background:
+    repeating-linear-gradient(28deg, transparent 0 27px, rgba(255, 252, 246, 0.68) 28px 31px),
+    repeating-linear-gradient(117deg, transparent 0 45px, rgba(93, 102, 95, 0.22) 46px 48px);
+}
+
+.map-route {
+  stroke: #c86d4f;
+  filter: drop-shadow(0 4px 2px rgba(126, 66, 48, 0.24));
+}
+
+.map-stop {
+  fill: #c86d4f;
+}
+
+.map-stop.origin {
+  fill: #4a8887;
+}
+
+.map-caption {
+  color: #486f6d;
+  border-color: #b9c7bd;
+  background: rgba(255, 252, 246, 0.9);
+}
+
+.timeline-dot {
+  border-color: #6d9a96;
+}
+
+.timeline-dot.visited {
+  border-color: #4a8887;
+  background: #4a8887;
+}
+
+.timeline-dot.fixed {
+  border-color: #c86d4f;
+}
+
+.leg-line {
+  border-left-color: #c7baad;
+  color: #7f817e;
+}
+
+.leg-line strong {
+  color: #55716e;
+}
+
+.constraint {
+  color: #3e7774;
+  background: #e0ece7;
+}
+
+.constraint.fixed {
+  color: #a85c45;
+  background: #f8e5da;
+}
+
+.constraint.home {
+  color: #777b76;
+  background: #e6e1d8;
+}
+
+.notification-card,
+.notification-card.critical {
+  border-color: #e5b79d;
+  background: #fbebe1;
+}
+
+.notification-kicker,
+.notification-card small {
+  color: #b8664d;
+}
+
+.notification-card h3 {
+  color: #70473d;
+}
+
+.notification-card p {
+  color: #856b61;
+}
+
+.secondary-action {
+  border-color: #99b7b1;
+  color: #3e7774;
+  background: #f8f5ee;
+}
+
+.demo-controls select {
+  border-color: #cfc3b6;
+  color: #4c5c58;
+  background: #fffaf3;
+}
+
+.complete-action {
+  border-color: #c4c1b7;
+  color: #747a75;
+  background: #f8f5ee;
+}
+
+.completed-block {
+  border-color: #abc5bd;
+  color: #3e7774;
+  background: #e1ece7;
+}
+
+.workbench-footer {
+  color: #6d7977;
+  background: #ebe4d9;
+}
+
+/* Routa soft editorial palette — layered paper surfaces */
+:root {
+  --bg: #f8f4ed;
+  --panel: #fffdf8;
+  --panel-soft: #eee8de;
+  --line: #d9d0c4;
+  --muted: #7d817d;
+  --text: #343a3a;
+  --mint: #4f8885;
+  --mint-deep: #356d6d;
+  --orange: #c56c4f;
+  --danger: #a8524d;
+}
+
+html,
+body,
+.workbench {
+  background: #f8f4ed;
+}
+
+.workbench-header {
+  background: #ede6dc;
+  border-bottom-color: #d9d0c4;
+  box-shadow: 0 4px 18px rgba(75, 65, 55, 0.08);
+}
+
+.brand {
+  color: #343a3a;
+}
+
+.brand-mark {
+  background: #4f8885;
+}
+
+.brand > span:last-child {
+  color: #7b817d;
+}
+
+.local-status,
+.status-chip {
+  color: #6d5c52;
+  border-color: #d9bba9;
+  background: #f4e4d9;
+}
+
+.status-chip {
+  border: 0;
+}
+
+.status-dot {
+  background: #4f8885;
+  box-shadow: 0 0 8px rgba(79, 136, 133, 0.3);
+}
+
+.history-sidebar {
+  color: #3f4644;
+  border-right-color: #d9d0c4;
+  background: #e9e1d7;
+}
+
+.history-sidebar .kicker {
+  color: #8a8d87;
+}
+
+.history-sidebar .sidebar-heading h1 {
+  color: #343a3a;
+}
+
+.history-sidebar .sidebar-copy {
+  color: #777d79;
+}
+
+.history-sidebar .icon-button {
+  border-color: #c7b8a8;
+  color: #a65e47;
+  background: #f7f0e7;
+}
+
+.history-sidebar .history-item.selected {
+  border-color: #d89576;
+  background: #fff8f0;
+  box-shadow: inset 3px 0 0 #d89576;
+}
+
+.history-sidebar .history-select,
+.history-sidebar .history-select strong {
+  color: #3d4543;
+}
+
+.history-sidebar .history-select span {
+  color: #7f847e;
+}
+
+.history-sidebar .delete-button {
+  color: #a8786d;
+}
+
+.history-sidebar .history-empty {
+  color: #767c78;
+  background: #ded5ca;
+}
+
+.conversation-panel {
+  background: #f8f4ed;
+}
+
+.itinerary-panel {
+  background: #eee8de;
+}
+
+.history-sidebar,
+.conversation-panel,
+.itinerary-panel,
+.conversation-heading,
+.itinerary-heading,
+.start-block,
+.monitor-block,
+.workbench-footer {
+  border-color: #d9d0c4;
+}
+
+.conversation-heading,
+.itinerary-heading {
+  border-bottom-color: #d9d0c4;
+}
+
+.sidebar-heading h1,
+.conversation-heading h2,
+.itinerary-heading h2,
+.create-plan h2,
+.timeline-copy strong,
+.notification-card h3,
+.monitor-block strong,
+.empty-state strong {
+  color: #343a3a;
+}
+
+.message {
+  border-color: #e2dacf;
+  color: #505957;
+  background: #fffdf8;
+  box-shadow: 0 6px 16px rgba(75, 65, 55, 0.07);
+}
+
+.message.user {
+  border-color: #e6b69d;
+  color: #71493f;
+  background: #f7dfd1;
+}
+
+.message.user .message-label {
+  color: #b4654c;
+}
+
+.composer {
+  border-color: #d2c7bb;
+  background: #fffdf8;
+  box-shadow: 0 7px 18px rgba(75, 65, 55, 0.08);
+}
+
+.composer:focus-within {
+  border-color: #78a7a2;
+  box-shadow: 0 0 0 3px rgba(79, 136, 133, 0.13);
+}
+
+.composer textarea {
+  color: #414b48;
+}
+
+.composer textarea::placeholder {
+  color: #9b9a91;
+}
+
+.composer button,
+.primary-action {
+  background: #356d6d;
+}
+
+.composer button:hover,
+.primary-action:hover {
+  background: #2b5e60;
+}
+
+.route-summary strong {
+  color: #414b48;
+}
+
+.route-summary span,
+.timeline-copy small,
+.timeline-copy span,
+.create-plan > p:not(.kicker),
+.empty-state,
+.monitor-block > div:first-child span {
+  color: #7d817d;
+}
+
+.route-source {
+  color: #4f8885 !important;
+}
+
+.route-map {
+  border-color: #c9bfb2;
+  background: #d9d0c3;
+  box-shadow: 0 7px 16px rgba(75, 65, 55, 0.08);
+}
+
+.map-grid {
+  background:
+    repeating-linear-gradient(28deg, transparent 0 27px, rgba(255, 253, 248, 0.65) 28px 31px),
+    repeating-linear-gradient(117deg, transparent 0 45px, rgba(107, 106, 96, 0.2) 46px 48px);
+}
+
+.map-route {
+  stroke: #c56c4f;
+  filter: drop-shadow(0 4px 2px rgba(126, 66, 48, 0.2));
+}
+
+.map-stop {
+  fill: #c56c4f;
+}
+
+.map-stop.origin {
+  fill: #4f8885;
+}
+
+.map-caption {
+  color: #557975;
+  border-color: #bdc9bd;
+  background: rgba(255, 253, 248, 0.9);
+}
+
+.timeline-dot {
+  border-color: #76a3a0;
+}
+
+.timeline-dot.visited {
+  border-color: #4f8885;
+  background: #4f8885;
+}
+
+.timeline-dot.fixed {
+  border-color: #c56c4f;
+}
+
+.leg-line {
+  border-left-color: #cbbfb1;
+  color: #7d817d;
+}
+
+.leg-line strong {
+  color: #5e7d78;
+}
+
+.constraint {
+  color: #447b77;
+  background: #e2ede8;
+}
+
+.constraint.fixed {
+  color: #a75e47;
+  background: #f8e6dc;
+}
+
+.constraint.home {
+  color: #7b7e78;
+  background: #e6e0d7;
+}
+
+.notification-card,
+.notification-card.critical {
+  border-color: #e4b79f;
+  background: #fbece2;
+}
+
+.notification-kicker,
+.notification-card small {
+  color: #b4654c;
+}
+
+.notification-card h3 {
+  color: #71493f;
+}
+
+.notification-card p {
+  color: #856d63;
+}
+
+.secondary-action {
+  border-color: #a5c2bb;
+  color: #447b77;
+  background: #faf7f0;
+}
+
+.demo-controls select {
+  border-color: #d0c4b8;
+  color: #505b57;
+  background: #fffdf8;
+}
+
+.complete-action {
+  border-color: #c7c2b8;
+  color: #777d78;
+  background: #faf7f0;
+}
+
+.completed-block {
+  border-color: #acc5bd;
+  color: #447b77;
+  background: #e2ede8;
+}
+
+.workbench-footer {
+  color: #7b817d;
+  background: #e9e1d7;
+}
+
+/* Routa signal palette — deep sea, teal, coral, and mustard */
+:root {
+  --bg: #faf8f3;
+  --panel: #fffdf8;
+  --panel-soft: #e9eff1;
+  --line: #cbd8dc;
+  --muted: #75848a;
+  --text: #24363f;
+  --mint: #2f8f8b;
+  --mint-deep: #236a6b;
+  --orange: #dd775a;
+  --danger: #b75b55;
+}
+
+html,
+body,
+.workbench {
+  background: #faf8f3;
+}
+
+.workbench-header {
+  background: #203b45;
+  border-bottom-color: #44606a;
+  box-shadow: 0 5px 20px rgba(28, 53, 62, 0.16);
+}
+
+.brand {
+  color: #f8fbf8;
+}
+
+.brand-mark {
+  background: #2f8f8b;
+}
+
+.brand > span:last-child {
+  color: #b9ccce;
+}
+
+.local-status,
+.status-chip {
+  color: #d5f0eb;
+  border-color: #5b8588;
+  background: #2d5660;
+}
+
+.status-chip {
+  border: 0;
+}
+
+.status-dot {
+  background: #2f8f8b;
+  box-shadow: 0 0 8px rgba(47, 143, 139, 0.42);
+}
+
+.history-sidebar {
+  color: #edf4f2;
+  border-right-color: #45616a;
+  background: #294650;
+}
+
+.history-sidebar .kicker {
+  color: #b2c7c9;
+}
+
+.history-sidebar .sidebar-heading h1 {
+  color: #f7fbf8;
+}
+
+.history-sidebar .sidebar-copy {
+  color: #c1d1d2;
+}
+
+.history-sidebar .icon-button {
+  border-color: #729197;
+  color: #efc56c;
+  background: #345964;
+}
+
+.history-sidebar .history-item.selected {
+  border-color: #e2b458;
+  background: #355965;
+  box-shadow: inset 3px 0 0 #e2b458;
+}
+
+.history-sidebar .history-select,
+.history-sidebar .history-select strong {
+  color: #f7fbf8;
+}
+
+.history-sidebar .history-select span {
+  color: #c0d1d2;
+}
+
+.history-sidebar .delete-button {
+  color: #e1b2a2;
+}
+
+.history-sidebar .history-empty {
+  color: #d3e1df;
+  background: #345964;
+}
+
+.conversation-panel {
+  background: #faf8f3;
+}
+
+.itinerary-panel {
+  background: #e9eff1;
+}
+
+.history-sidebar,
+.conversation-panel,
+.itinerary-panel,
+.conversation-heading,
+.itinerary-heading,
+.start-block,
+.monitor-block,
+.workbench-footer {
+  border-color: #cbd8dc;
+}
+
+.conversation-heading,
+.itinerary-heading {
+  border-bottom-color: #cbd8dc;
+}
+
+.sidebar-heading h1,
+.conversation-heading h2,
+.itinerary-heading h2,
+.create-plan h2,
+.timeline-copy strong,
+.notification-card h3,
+.monitor-block strong,
+.empty-state strong {
+  color: #24363f;
+}
+
+.message {
+  border-color: #dae2e2;
+  color: #4d5d62;
+  background: #fffdf8;
+  box-shadow: 0 7px 18px rgba(38, 58, 66, 0.08);
+}
+
+.message.user {
+  border-color: #efb29f;
+  color: #71463d;
+  background: #f8ddd3;
+}
+
+.message.user .message-label {
+  color: #bd654c;
+}
+
+.composer {
+  border-color: #bfcfd2;
+  background: #fffdf8;
+  box-shadow: 0 8px 20px rgba(38, 58, 66, 0.09);
+}
+
+.composer:focus-within {
+  border-color: #61a9a2;
+  box-shadow: 0 0 0 3px rgba(47, 143, 139, 0.14);
+}
+
+.composer textarea {
+  color: #33494f;
+}
+
+.composer textarea::placeholder {
+  color: #94a1a4;
+}
+
+.composer button,
+.primary-action {
+  background: #236a6b;
+}
+
+.composer button:hover,
+.primary-action:hover {
+  background: #1b575b;
+}
+
+.route-summary strong {
+  color: #30464d;
+}
+
+.route-summary span,
+.timeline-copy small,
+.timeline-copy span,
+.create-plan > p:not(.kicker),
+.empty-state,
+.monitor-block > div:first-child span {
+  color: #75848a;
+}
+
+.route-source {
+  color: #2f8f8b !important;
+}
+
+.route-map {
+  border-color: #b6cbd0;
+  background: #cddde1;
+  box-shadow: 0 8px 18px rgba(38, 58, 66, 0.1);
+}
+
+.map-grid {
+  background:
+    repeating-linear-gradient(28deg, transparent 0 27px, rgba(255, 255, 255, 0.7) 28px 31px),
+    repeating-linear-gradient(117deg, transparent 0 45px, rgba(70, 121, 129, 0.22) 46px 48px);
+}
+
+.map-route {
+  stroke: #dd775a;
+  filter: drop-shadow(0 4px 2px rgba(141, 73, 53, 0.22));
+}
+
+.map-stop {
+  fill: #e2b458;
+}
+
+.map-stop.origin {
+  fill: #2f8f8b;
+}
+
+.map-caption {
+  color: #356e70;
+  border-color: #a8c3c7;
+  background: rgba(251, 253, 250, 0.9);
+}
+
+.timeline-dot {
+  border-color: #69aaa6;
+}
+
+.timeline-dot.origin {
+  border-color: #a6b9bd;
+  background: #a6b9bd;
+}
+
+.timeline-dot.fixed {
+  border-color: #e2b458;
+}
+
+.timeline-dot.visited {
+  border-color: #2f8f8b;
+  background: #2f8f8b;
+}
+
+.leg-line {
+  border-left-color: #b8cdd1;
+  color: #75848a;
+}
+
+.leg-line strong {
+  color: #4b787b;
+}
+
+.constraint {
+  color: #287875;
+  background: #dcefea;
+}
+
+.constraint.fixed {
+  color: #ad654f;
+  background: #fbe5dc;
+}
+
+.constraint.home {
+  color: #6d7d80;
+  background: #e3e9e9;
+}
+
+.notification-card,
+.notification-card.critical {
+  border-color: #efb39f;
+  background: #fbe9e1;
+}
+
+.notification-kicker,
+.notification-card small {
+  color: #bd654c;
+}
+
+.notification-card h3 {
+  color: #75493f;
+}
+
+.notification-card p {
+  color: #876d65;
+}
+
+.secondary-action {
+  border-color: #8ebdb9;
+  color: #287875;
+  background: #f5fbf8;
+}
+
+.demo-controls select {
+  border-color: #bfced1;
+  color: #40575d;
+  background: #fffdf8;
+}
+
+.complete-action {
+  border-color: #b9c8cb;
+  color: #6e7d80;
+  background: #f7faf9;
+}
+
+.completed-block {
+  border-color: #9fc7c0;
+  color: #287875;
+  background: #def0e9;
+}
+
+.workbench-footer {
+  color: #6d7e82;
+  background: #e9eff1;
 }

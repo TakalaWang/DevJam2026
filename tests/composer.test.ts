@@ -14,6 +14,14 @@ describe("chat composer keyboard behavior", () => {
     expect(composerKeyAction({ key: "Enter", isComposing: true })).toBe("ignore");
   });
 
+  it("does not submit while the composition state ref is active", () => {
+    expect(composerKeyAction({ key: "Enter" }, true)).toBe("ignore");
+  });
+
+  it("does not submit for the browser IME keyCode", () => {
+    expect(composerKeyAction({ key: "Enter", keyCode: 229 })).toBe("ignore");
+  });
+
   it("recognizes the browser's IME keyCode while composition is active", () => {
     expect(isComposingEnter({ key: "Enter", keyCode: 229 })).toBe(true);
     expect(isComposingEnter({ key: "Enter" }, true)).toBe(true);

@@ -12,6 +12,8 @@ import {
   type ItineraryNotification,
   type RoutePoint,
 } from "../contracts";
+import { routaAssistantLabel, routaBrand, routaSubtitle } from "../lib/brand";
+import { composerKeyAction } from "../lib/composer";
 
 type ChatMessage = { id: number; role: "assistant" | "user"; content: string };
 type DemoScenario = "flood" | "road_closure" | "station_disruption" | "bike_unavailable";
@@ -255,6 +257,7 @@ export default function Page() {
   const [demoScenario, setDemoScenario] = useState<DemoScenario>("flood");
   const [latestNotification, setLatestNotification] = useState<ItineraryNotification>();
   const nextMessageId = useRef(1);
+  const isComposingRef = useRef(false);
 
   function applySnapshot(snapshot: DayItinerarySnapshot) {
     setItinerary(snapshot);
@@ -374,6 +377,7 @@ export default function Page() {
 
   function submitMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (isComposingRef.current) return;
     void sendMessage(draft.trim());
   }
 
@@ -450,8 +454,8 @@ export default function Page() {
       <header className="workbench-header">
         <div className="brand">
           <span className="brand-mark" aria-hidden="true" />
-          <strong>ROUTECRAFT</strong>
-          <span>LOCAL DAY WORKBENCH</span>
+          <strong>{routaBrand}</strong>
+          <span>{routaSubtitle}</span>
         </div>
         <div className="local-status">
           <span className="status-dot" />
@@ -503,7 +507,7 @@ export default function Page() {
           </div>
         </aside>
 
-        <section className="conversation-panel" aria-label="Gemini 行程討論">
+        <section className="conversation-panel" aria-label="Routa 智旅行程討論">
           {!selectedId ? (
             <div className="create-plan">
               <p className="kicker">01 / CREATE A DAY PLAN</p>
@@ -511,8 +515,7 @@ export default function Page() {
                 先決定哪一天，<em>再開始聊天。</em>
               </h2>
               <p>
-                這是一個只在本機執行的工作台。建立日期後，Gemini
-                會陪你把出門、活動、交通和回家完整排好。
+                這是一個只在本機執行的工作台。建立日期後，智旅會陪你把出門、活動、交通和回家完整排好。
               </p>
               <form onSubmit={createPlan}>
                 <label htmlFor="plan-date">出遊日期</label>
@@ -532,7 +535,7 @@ export default function Page() {
             <>
               <div className="conversation-heading">
                 <div>
-                  <p className="kicker">02 / GEMINI CONVERSATION</p>
+                  <p className="kicker">02 / ROUTA CONVERSATION</p>
                   <h2>{itinerary?.date} 的出遊計畫</h2>
                 </div>
                 <span className="status-chip">
@@ -543,14 +546,14 @@ export default function Page() {
                 {messages.map((message) => (
                   <div className={`message ${message.role}`} key={message.id}>
                     <span className="message-label">
-                      {message.role === "assistant" ? "ROUTECRAFT / GEMINI" : "YOU"}
+                      {message.role === "assistant" ? routaAssistantLabel : "YOU"}
                     </span>
                     <p>{message.content}</p>
                   </div>
                 ))}
                 {loading && (
                   <div className="message assistant">
-                    <span className="message-label">ROUTECRAFT / GEMINI</span>
+                    <span className="message-label">{routaAssistantLabel}</span>
                     <p>
                       <span className="typing-dot" />
                       正在重新檢查今天的安排…
@@ -563,13 +566,24 @@ export default function Page() {
                   aria-label="輸入行程討論"
                   disabled={loading}
                   onChange={(event) => setDraft(event.target.value)}
+                  onCompositionStart={() => {
+                    isComposingRef.current = true;
+                  }}
+                  onCompositionEnd={() => {
+                    isComposingRef.current = false;
+                  }}
                   onKeyDown={(event) => {
-                    if (event.key === "Enter" && !event.shiftKey) {
+                    const action = composerKeyAction(event, isComposingRef.current);
+                    if (event.key === "Enter" && action === "ignore") {
+                      event.preventDefault();
+                      return;
+                    }
+                    if (action === "send") {
                       event.preventDefault();
                       void sendMessage(draft.trim());
                     }
                   }}
-                  placeholder="繼續告訴 Gemini 你的想法…"
+                  placeholder="繼續告訴智旅你的想法…"
                   rows={3}
                   value={draft}
                 />
@@ -623,12 +637,12 @@ export default function Page() {
                 <div className="start-block">
                   {blockedLegCount > 0 ? (
                     <p className="start-blocked">
-                      Gemini 已完成行程內容，但目前有 {blockedLegCount} 段交通沒有可用路線，請先確認
+                      Routa 智旅已完成行程內容，但目前有 {blockedLegCount} 段交通沒有可用路線，請先確認
                       Google Routes API 設定。
                     </p>
                   ) : (
                     <>
-                      <p>Gemini 判定從出門到回家的安排已經完整。</p>
+                      <p>智旅判定從出門到回家的安排已經完整。</p>
                       <button
                         className="primary-action"
                         disabled={loading || !isToday}
@@ -697,7 +711,7 @@ export default function Page() {
       <footer className="workbench-footer">
         <span>LOCAL DEVELOPMENT MODE</span>
         <span>STRUCTURED STATE · ZOD</span>
-        <span>GRAPH ROUTING · GEMINI INTERACTIONS</span>
+        <span>SMART ROUTING · GEMINI INTERACTIONS</span>
       </footer>
     </main>
   );
