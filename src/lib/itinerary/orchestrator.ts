@@ -11,6 +11,7 @@ import {
   type ConversationRun,
   type DayItinerarySnapshot,
   type ItineraryNotification,
+  type ItineraryCommand,
   type PlanningFacts,
   type RouteSignal,
   type RouteProfile,
@@ -83,6 +84,42 @@ function explicitReturnHome(message: string): boolean | undefined {
   if (/不回家|不用回家|不返回|不需要回/.test(message)) return false;
   if (/回家|回到|返回|返抵|回程|回台/.test(message)) return true;
   return undefined;
+}
+
+function factsFromProposal(
+  facts: PlanningFacts,
+  command: Extract<ItineraryCommand, { action: "propose_day" }>,
+): PlanningFacts {
+  const transportPreference = facts.transportPreference.value
+    ? facts.transportPreference
+    : command.profiles[0] === "transit"
+      ? { status: "provided" as const, value: "public_transit" as const }
+      : command.profiles[0] === "bike"
+        ? { status: "provided" as const, value: "bike" as const }
+        : command.profiles[0] === "foot"
+          ? { status: "provided" as const, value: "walk" as const }
+          : { status: "provided" as const, value: "car" as const };
+  return PlanningFactsSchema.parse({
+    ...facts,
+    origin: facts.origin.value ? facts.origin : { status: "provided", value: command.origin },
+    destinations: facts.destinations.value?.length
+      ? facts.destinations
+      : { status: "provided", value: command.stops.map((stop) => stop.title) },
+    departureAt: facts.departureAt.value
+      ? facts.departureAt
+      : { status: "provided", value: command.startAt },
+    endAt: facts.endAt.value ? facts.endAt : { status: "provided", value: command.endAt },
+    transportPreference,
+    returnPlan: facts.returnPlan.value
+      ? facts.returnPlan
+      : {
+          status: "provided",
+          value: {
+            returnHome: command.returnHome,
+            ...(command.returnHome ? { location: command.origin } : {}),
+          },
+        },
+  });
 }
 
 export class ItineraryOrchestrator {
@@ -559,23 +596,30 @@ export class ItineraryOrchestrator {
       return PlanningFactsSchema.parse(current.planningFacts);
     }
     const parsedFacts = PlanningFactsSchema.parse(output.facts);
+    const proposalFacts =
+      output.command.action === "propose_day"
+        ? factsFromProposal(parsedFacts, output.command)
+        : parsedFacts;
     const returnHome = explicitReturnHome(userMessage);
     const returnHomeWithKnownOrigin =
-      returnHome === true && !parsedFacts.origin.value ? undefined : returnHome;
+      returnHome === true && !proposalFacts.origin.value ? undefined : returnHome;
     const facts =
       returnHomeWithKnownOrigin === undefined
-        ? parsedFacts
+        ? proposalFacts
         : PlanningFactsSchema.parse({
-            ...parsedFacts,
+            ...proposalFacts,
             returnPlan: {
               status:
-                parsedFacts.returnPlan.status === "missing"
+                proposalFacts.returnPlan.status === "missing"
                   ? "provided"
-                  : parsedFacts.returnPlan.status,
+                  : proposalFacts.returnPlan.status,
               value: {
                 returnHome: returnHomeWithKnownOrigin,
                 ...(returnHomeWithKnownOrigin
-                  ? { location: parsedFacts.returnPlan.value?.location ?? parsedFacts.origin.value }
+                  ? {
+                      location:
+                        proposalFacts.returnPlan.value?.location ?? proposalFacts.origin.value,
+                    }
                   : {}),
               },
             },

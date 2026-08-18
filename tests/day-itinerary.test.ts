@@ -118,6 +118,22 @@ class FixtureAgentWithoutFixedActivities extends FixtureItineraryAgent {
   }
 }
 
+class FixtureAgentWithoutEndTime extends FixtureItineraryAgent {
+  override async interpret(
+    itinerary: Parameters<FixtureItineraryAgent["interpret"]>[0],
+    userMessage: string,
+  ): Promise<ConversationAgentResult> {
+    const result = await super.interpret(itinerary, userMessage);
+    return ConversationAgentResultSchema.parse({
+      ...result,
+      output: ConversationAgentOutputSchema.parse({
+        ...result.output,
+        facts: { ...result.output.facts, endAt: { status: "missing" } },
+      }),
+    });
+  }
+}
+
 class EmptyCityGateway extends CityDataGateway {
   override async refresh(): Promise<CityFeedSnapshot> {
     return CityFeedSnapshotSchema.parse({
@@ -204,6 +220,16 @@ describe("day itinerary orchestration", () => {
     const proposed = await planConcert(orchestrator, itinerary);
 
     expect(proposed.itinerary.status).toBe("ready");
+    expect(proposed.itinerary.stops).toHaveLength(2);
+  });
+
+  it("uses the typed proposal when the agent facts omit the end time", async () => {
+    const orchestrator = service(new FixtureAgentWithoutEndTime());
+    const itinerary = orchestrator.createSession("user-1", today);
+    const proposed = await planConcert(orchestrator, itinerary);
+
+    expect(proposed.itinerary.status).toBe("ready");
+    expect(proposed.itinerary.endAt).toBe(`${today}T22:00:00+08:00`);
     expect(proposed.itinerary.stops).toHaveLength(2);
   });
 
