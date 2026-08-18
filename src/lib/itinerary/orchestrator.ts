@@ -228,7 +228,9 @@ export class ItineraryOrchestrator {
     const run = this.store.createRun(sessionId, runMessage);
     this.store.saveRun({ ...run, status: "running" });
     try {
-      const itinerary = this.store.saveSession(this.startNavigationSnapshot(current));
+      const itinerary = this.store.saveSession(
+        this.startNavigationSnapshot(current, runMessage === "system:judge_demo:start"),
+      );
       const output = ConversationAgentOutputSchema.parse({
         message: "行程導航已開始，我會持續留意目前路線與城市狀況。",
         planningPhase: "refining",
@@ -516,7 +518,10 @@ export class ItineraryOrchestrator {
     };
   }
 
-  private startNavigationSnapshot(current: DayItinerarySnapshot): DayItinerarySnapshot {
+  private startNavigationSnapshot(
+    current: DayItinerarySnapshot,
+    allowScheduledDate = false,
+  ): DayItinerarySnapshot {
     if (!current.stops.length) throw new Error("尚未建立今日行程");
     if (current.status !== "ready") throw new Error("行程尚未準備完成");
     if (!assessPlanningReadiness(current.planningFacts).ready) {
@@ -525,7 +530,7 @@ export class ItineraryOrchestrator {
     if (current.legs.some((leg) => leg.status === "blocked")) {
       throw new Error("仍有交通路段無法安全安排");
     }
-    if (current.date !== todayInTaipei()) {
+    if (!allowScheduledDate && current.date !== todayInTaipei()) {
       throw new Error(`請在 ${current.date} 當天開始行程`);
     }
     const legs = current.legs.map((leg, index) => ({
@@ -575,7 +580,7 @@ export class ItineraryOrchestrator {
               },
             },
           });
-    if (current.planningFacts.confirmation === "pending" && hasExplicitConfirmation(userMessage)) {
+    if (hasExplicitConfirmation(userMessage)) {
       return PlanningFactsSchema.parse({
         ...facts,
         origin: facts.origin.value ? { ...facts.origin, status: "confirmed" } : facts.origin,

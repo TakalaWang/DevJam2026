@@ -31,7 +31,6 @@ export function assessPlanningReadiness(rawFacts: PlanningFacts) {
     { field: "destinations", status: facts.destinations.status },
     { field: "departure_at", status: facts.departureAt.status },
     { field: "end_at", status: facts.endAt.status },
-    { field: "fixed_activities", status: facts.fixedActivities.status },
     { field: "transport_preference", status: facts.transportPreference.status },
     { field: "return_plan", status: facts.returnPlan.status },
   ];

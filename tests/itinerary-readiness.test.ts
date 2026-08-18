@@ -34,7 +34,6 @@ describe("itinerary readiness", () => {
       "destinations",
       "departure_at",
       "end_at",
-      "fixed_activities",
       "transport_preference",
       "return_plan",
       "user_confirmation",

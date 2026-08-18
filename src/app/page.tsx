@@ -147,7 +147,9 @@ function messagesFromRuns(runs: ConversationRun[]): ChatMessage[] {
 async function readError(response: Response, fallback: string): Promise<Error> {
   const payload = await response.json().catch(() => null);
   const parsed = ApiErrorResponseSchema.safeParse(payload);
-  return new Error(parsed.success ? parsed.data.error : fallback);
+  if (parsed.success) return new Error(parsed.data.error);
+  const operation = DayItineraryResponseSchema.safeParse(payload);
+  return new Error(operation.success ? operation.data.lastRun?.error?.message ?? fallback : fallback);
 }
 
 async function getHistory(): Promise<DayItinerarySummary[]> {
@@ -1173,7 +1175,7 @@ export default function Page() {
             {readyToStart && blockedLegCount === 0 && (
               <button
                 className="judge-demo-launch"
-                disabled={loading || !isToday || isJudgeDemoRunning(judgeDemoPhase)}
+                disabled={loading || isJudgeDemoRunning(judgeDemoPhase)}
                 onClick={runJudgeDemo}
                 type="button"
               >
