@@ -2,6 +2,7 @@
   "name": "devjam-traffic-itinerary",
   "private": true,
   "type": "module",
+  "license": "MIT",
   "packageManager": "pnpm@10.28.0",
   "scripts": {
     "dev": "next dev",
